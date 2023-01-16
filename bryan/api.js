@@ -7,6 +7,10 @@ module.exports = new Promise(resolve => {
     const cga = require('../cgaapi')(() => setTimeout(() => resolve(cga), 0));
 }).then(async (cga) => {
 
+    let bryan = {};
+    bryan.延迟 = utils.wait;
+    bryan.信息提示 = utils.info;
+
     // *. 获取用户配置
     let getUserSettings = () => {
         return new Promise((resolve, reject) => {
@@ -44,6 +48,10 @@ module.exports = new Promise(resolve => {
         return false;
     };
 
+    /* ------------------------------------------------------------------------ */
+    /* --------------------------------- 设置 --------------------------------- */
+    /* ------------------------------------------------------------------------ */
+
     // 1. 设置高速移动
     let setMoveSpeed = async (speed = 130) => {
         let msg = '设置高速移动';
@@ -55,6 +63,7 @@ module.exports = new Promise(resolve => {
         let result = await updateUserSettings(updated);
         result ? utils.info(`${msg}: ${result.player.movespd}`) : utils.error(`${msg}失败`);
     };
+    bryan.设置高速移动 = setMoveSpeed;
 
     // 2. 设置高速采集
     let setWorkDelay = async (delay = 4800) => {
@@ -67,6 +76,7 @@ module.exports = new Promise(resolve => {
         let result = await updateUserSettings(updated);
         result ? utils.info(`${msg}: ${result.player.workdelay}`) : utils.error(`${msg}失败`);
     };
+    bryan.设置高速采集 = setWorkDelay;
 
     // 3. 设置高速切图
     let setQuickSwitch = async (enable = true) => {
@@ -79,6 +89,7 @@ module.exports = new Promise(resolve => {
         let result = await updateUserSettings(updated);
         result ? utils.info(`${msg}: ${result.player.noswitchanim ? '开' : '关'}`) : utils.error(`${msg}失败`);
     };
+    bryan.设置高速切图 = setQuickSwitch;
 
     // 4. 设置自动补给
     let setAutoSupply = async (enable = true) => {
@@ -91,6 +102,7 @@ module.exports = new Promise(resolve => {
         let result = await updateUserSettings(updated);
         result ? utils.info(`${msg}: ${result.player.autosupply ? '开' : '关'}`) : utils.error(`${msg}失败`);
     };
+    bryan.设置自动补给 = setAutoSupply;
 
     // 5. 设置说话防掉线
     let setKeepAlive = async (enable = true) => {
@@ -103,6 +115,7 @@ module.exports = new Promise(resolve => {
         let result = await updateUserSettings(updated);
         result ? utils.info(`${msg}: ${result.player.antiafkkick ? '开' : '关'}`) : utils.error(`${msg}失败`);
     };
+    bryan.设置说话防掉线 = setKeepAlive;
 
     // 6. 设置自动吃料理
     let setItemSupplyMagic = async (enable = true, value = '0', player = true) => {
@@ -130,6 +143,7 @@ module.exports = new Promise(resolve => {
         let updatedValue = player === true ? result.player.usefoodat : result.player.petfoodat;
         result ? utils.info(`${msg}(${isPlayer}): ${isOpen ? '开' : '关'}(小于等于 -> ${updatedValue})`) : utils.error(`${msg}(${isPlayer})失败`);
     };
+    bryan.设置自动吃料理 = setItemSupplyMagic;
 
     // 7.设置自动吃血瓶
     let setItemSupplyHealth = async (enable = true, value = '0', player = true) => {
@@ -157,6 +171,7 @@ module.exports = new Promise(resolve => {
         let updatedValue = player === true ? result.player.usemedat : result.player.petmedat;
         result ? utils.info(`${msg}(${isPlayer}): ${isOpen ? '开' : '关'}(小于等于 -> ${updatedValue})`) : utils.error(`${msg}(${isPlayer})失败`);
     };
+    bryan.设置自动吃血瓶 = setItemSupplyHealth;
 
     // 8. 设置自动丢物品
     let setAutoDropItems = async (items = [], append = false) => {
@@ -170,6 +185,7 @@ module.exports = new Promise(resolve => {
         let result = await updateUserSettings(updated, append);
         result ? utils.info(`${msg}: ${result.itemdroplist.toString()}`) : utils.error(`${msg}失败`);
     };
+    bryan.设置自动丢物品 = setAutoDropItems;
 
     // 9. 设置自动叠加物品
     let setAutoOverlayItems = async (items = [], append = false) => {
@@ -183,6 +199,7 @@ module.exports = new Promise(resolve => {
         let result = await updateUserSettings(updated, append);
         result ? utils.info(`${msg}: ${result.itemtweaklist.toString()}`) : utils.error(`${msg}失败`);
     };
+    bryan.设置自动叠加物品 = setAutoOverlayItems;
 
     // 10. 设置高速战斗
     let setFastBattle = async (enable = true) => {
@@ -196,6 +213,7 @@ module.exports = new Promise(resolve => {
         let result = await updateUserSettings(updated);
         result ? utils.info(`${msg}: ${result.battle.highspeed ? '开' : '关'}`) : utils.error(`${msg}失败`);
     };
+    bryan.设置高速战斗 = setFastBattle;
 
     // 11. 设置自动战斗
     let setAutoBattle = async (enable = true) => {
@@ -208,6 +226,7 @@ module.exports = new Promise(resolve => {
         let result = await updateUserSettings(updated);
         result ? utils.info(`${msg}: ${result.battle.autobattle ? '开' : '关'}`) : utils.error(`${msg}失败`);
     };
+    bryan.设置自动战斗 = setAutoBattle;
 
     // 12. 设置自动战斗延迟
     let setAutoBattleDelay = async (delay = 4500) => {
@@ -222,6 +241,7 @@ module.exports = new Promise(resolve => {
         let result = await updateUserSettings(updated);
         result ? utils.info(`${msg}: (${parseFloat(result.battle.delayfrom / 1000).toFixed(1)} - ${parseFloat(result.battle.delayto / 1000).toFixed(1)})秒`) : utils.error(`${msg}失败`);
     };
+    bryan.设置自动战斗延迟 = setAutoBattleDelay;
 
     // 13. 设置战斗宠物二动
     let setAutoBattlePetEnhance = async (enable = true) => {
@@ -234,6 +254,7 @@ module.exports = new Promise(resolve => {
         let result = await updateUserSettings(updated);
         result ? utils.info(`${msg}: ${result.battle.pet2action ? '开' : '关'}`) : utils.error(`${msg}失败`);
     };
+    bryan.设置战斗宠物二动 = setAutoBattlePetEnhance;
 
     // 14. 设置无限战斗时间
     let setBattleTimeInfinite = async (enable = true) => {
@@ -246,6 +267,7 @@ module.exports = new Promise(resolve => {
         let result = await updateUserSettings(updated);
         result ? utils.info(`${msg}: ${result.battle.lockcd ? '开' : '关'}`) : utils.error(`${msg}失败`);
     };
+    bryan.设置无限战斗时间 = setBattleTimeInfinite;
 
     // 15. 设置抓宠停止自动战斗
     let setAutoBattleFoundLv1Pet = async (enable = true) => {
@@ -259,6 +281,7 @@ module.exports = new Promise(resolve => {
         let result = await updateUserSettings(updated);
         result ? utils.info(`${msg}: ${result.battle.lv1prot ? '开' : '关'}`) : utils.error(`${msg}失败`);
     };
+    bryan.设置抓宠停止自动战斗 = setAutoBattleFoundLv1Pet;
 
     // 16. 设置遇BOSS停止自动战斗
     let setAutoBattleFoundBoss = async (enable = true) => {
@@ -272,14 +295,46 @@ module.exports = new Promise(resolve => {
         let result = await updateUserSettings(updated);
         result ? utils.info(`${msg}: ${result.battle.bossprot ? '开' : '关'}`) : utils.error(`${msg}失败`);
     };
+    bryan.设置遇BOSS停止自动战斗 = setAutoBattleFoundBoss;
+
+    // 30. 设置自动战斗逃跑
+    let setAutoBattleEscape = async () => {
+        let cond = {
+            condition: 0,
+            condition2: 0,
+            condition2rel: 0,
+            condition2val: '',
+            conditionrel: 0,
+            conditionval: '',
+            index: 0,
+            petaction: -1,
+            pettarget: -1,
+            pettargetsel: -1,
+            playeraction: 3,
+            playertarget: -1,
+            playertargetsel: -1
+        };
+
+        let msg = '设置自动战斗逃跑';
+        let updated = {
+            battle: {
+                list: [ cond ]
+            }
+        }
+        let result = await updateUserSettings(updated);
+        result ? utils.info(`${msg}: ${result.battle.list.length > 0 ? '开' : '关'}`) : utils.error(`${msg}失败`);
+
+    };
+    bryan.设置自动战斗逃跑 = setAutoBattleEscape;
 
     /* ------------------------------------------------------------------------ */
-    /* --------------------------------- 操作 --------------------------------- */
+    /* --------------------------------- 查询 --------------------------------- */
     /* ------------------------------------------------------------------------ */
     // 50. 获取人物名称
     let getPlayerName = () => {
         return cga.GetPlayerInfo().name;
-    }
+    };
+    bryan.获取人物名称 = getPlayerName;
 
     // 51. 获取人物坐标
     let getPlayerPos = () => {
@@ -288,17 +343,55 @@ module.exports = new Promise(resolve => {
             x: info.x,
             y: info.y,
         };
-    }
+    };
+    bryan.获取人物坐标 = getPlayerPos;
 
     // 52. 获取队伍人数
     let getTeamMemberCount = () => {
         return cga.getTeamPlayers().filter(e => !e.is_me).length + 1;
-    }
+    };
+    bryan.获取队伍人数 = getTeamMemberCount;
 
     // 53. 获取队伍成员
     let getTeamMemberNames = () => {
         return cga.getTeamPlayers().map(n => n.name);
+    };
+    bryan.获取队伍成员 = getTeamMemberNames;
+
+    // 54. 获取地图名称
+    let getMapName = () => {
+        return cga.GetMapName();
+    };
+    bryan.获取地图名称 = getMapName;
+
+    // 55. 获取NPC名称
+    let getNpcName = (x, y) => {
+        if (!x || !y || x < 0 || y < 0) {
+            utils.error(`获取NPC名称：找不到在坐标(${x}, ${y})的NPC`);
+            return;
+        }
+        try {
+            let npc = cga.GetMapUnits().find(u => (u.flags & 4096) && u.xpos == x && u.ypos == y);
+            if (npc && npc.unit_name) {
+                return npc.unit_name;
+            }
+            utils.error(`获取NPC名称：找不到在坐标(${x}, ${y})的NPC`);
+        } catch (error) {
+            utils.error(`获取NPC名称失败 -> ${error}`);
+        }
     }
+    bryan.获取NPC名称 = getNpcName;
+
+    // 56. 获取指定物品
+    let getItemByName = (name) => {
+        let item = cga.getInventoryItems().filter(item => item.name == name);
+        return item && item.length > 0;
+    }
+    bryan.获取指定物品 = getItemByName;
+
+    /* ------------------------------------------------------------------------ */
+    /* --------------------------------- 操作 --------------------------------- */
+    /* ------------------------------------------------------------------------ */
 
     // 100. 自动寻路
     let walkTo = async (x, y, warp = false) => {
@@ -365,6 +458,7 @@ module.exports = new Promise(resolve => {
         utils.info(`自动寻路：到达(${x}, ${y})`);
         return true;
     };
+    bryan.自动寻路 = walkTo;
 
     // 101. 等待战斗结束
     let waitBattleFinish = async (delay = 3000, max = 100) => {
@@ -383,23 +477,29 @@ module.exports = new Promise(resolve => {
             await wait().then(() => finished = true, () => finished = false);
         } while (!finished && times++ < max);
     };
+    bryan.等待战斗结束 = waitBattleFinish;
 
     // 102. 对话NPC
     let talkNpc = async (x, y, action = []) => {
-        if (!action || action.length < 1) {
+        let target = await getNpcName(x, y);
+        if (!target) {
+            return false;
+        }
+        utils.info(`对话NPC：${target}`);
+        cga.turnTo(x, y);
+        if (!action || action.length < 1 || !x || !y) {
             return true;
         }
 
         // 等待游戏NPC对话窗口打开
-        let waitDialogOpen = async (action, timeout) => {
-            cga.turnTo(x, y);
+        let waitDialogOpen = async (click, timeout) => {
             return new Promise((resolve, reject) => {
                 cga.AsyncWaitNPCDialog((error, dialog) => setTimeout(() => {
                     if (error) {
                         return reject(error);
                     }
-                    // utils.info(dialog);
-                    action(dialog ? dialog : {});
+                    //console.log(dialog);
+                    click(dialog ? dialog : {});
                     return resolve()
                 }, 0), timeout)
             });
@@ -465,12 +565,14 @@ module.exports = new Promise(resolve => {
         };
 
         try {
+            await utils.wait(1000);
             for (let i = 0; i < action.length; i++) {
+                await utils.wait(500);
                 let selection = action[i];
                 if (selection == '否') {
                     // 选否
                     await waitDialogOpen(selectNo);
-                } else if (selection == '下一步' || selection == '确认') {
+                } else if (selection == '下一步' || selection == '确定') {
                     // 选下一步、确认
                     await waitDialogOpen(selectNext);
                 } else {
@@ -484,6 +586,7 @@ module.exports = new Promise(resolve => {
             return false;
         }
     };
+    bryan.对话NPC = talkNpc;
 
     // 103. 高速遇敌
     let fastMeetEnemy = async (config = {}, timeout = 100) => {
@@ -541,6 +644,7 @@ module.exports = new Promise(resolve => {
 
         return await loop(pos, dest, swap);
     };
+    bryan.高速遇敌 = fastMeetEnemy;
 
     // 104. 检查当前状态
     let checkProtectStatus = async (config = {}) => {
@@ -568,6 +672,7 @@ module.exports = new Promise(resolve => {
         }
         return false;
     };
+    bryan.检查当前状态 = checkProtectStatus;
 
     // 105. 登出回城
     let logBack = async (delay = 1000) => {
@@ -576,7 +681,8 @@ module.exports = new Promise(resolve => {
                 return resolve();
             }, delay));
         });
-    }
+    };
+    bryan.登出回城 = logBack;
 
     // 106. 登出游戏
     let logOut = async (delay = 1000) => {
@@ -584,7 +690,8 @@ module.exports = new Promise(resolve => {
             cga.LogOut();
             return resolve();
         }, delay));
-    }
+    };
+    bryan.登出游戏 = logOut;
 
     // 107. 自动组队
     let makeTeam = async (members = []) => {
@@ -629,10 +736,10 @@ module.exports = new Promise(resolve => {
                     await utils.wait(1000);
                     await joinTeam(leader);
                 }
-                if(getTeamMemberCount() > 1) {
+                if (getTeamMemberCount() > 1) {
                     utils.info(`自动组队：成功完成加入${name}的队伍...`);
                     let current = getTeamMemberCount();
-                    while(current > 1 && current < count) {
+                    while (current > 1 && current < count) {
                         await utils.wait(5000);
                         current = getTeamMemberCount();
                     }
@@ -643,6 +750,7 @@ module.exports = new Promise(resolve => {
 
         return true;
     };
+    bryan.自动组队 = makeTeam;
 
     // 108. 踢出队伍
     let kickoutTeam = async (name, timeout = 5000) => {
@@ -666,6 +774,7 @@ module.exports = new Promise(resolve => {
             }, 0), timeout);
         });
     };
+    bryan.踢出队伍 = kickoutTeam;
 
     // 109. 加入队伍 
     let joinTeam = async (name, timeout = 5000) => {
@@ -680,6 +789,7 @@ module.exports = new Promise(resolve => {
             }, 0), timeout);
         });
     }
+    bryan.加入队伍 = joinTeam;
 
     // 110. 自动贩卖
     let talkNpcForSell = async (x, y, items = ['魔石', '卡片？'], timeout = 5000) => {
@@ -729,10 +839,11 @@ module.exports = new Promise(resolve => {
             });
         }
     }
+    bryan.自动贩卖 = talkNpcForSell;
 
     // 界面设置
 
-    await setMoveSpeed();
+    // await setMoveSpeed();
     // await setWorkDelay(5000);
     // await setQuickSwitch();
     // await setAutoSupply(false);
@@ -763,13 +874,16 @@ module.exports = new Promise(resolve => {
     // await joinTeam('法蘭回忆录灬遇');
     // await talkNpcForSell(19, 18);
 
-    console.log('脚本结束');
+    utils.info('版本(v0.0.1)');
 
     /**
      * 导出方法区
      */
     global.cga = cga;
-    global.设置高速移动 = setMoveSpeed;
+    for (let key in bryan) {
+        global[key] = bryan[key];
+        global.cga[key] = bryan[key];
+    }
 
     return cga;
 });
