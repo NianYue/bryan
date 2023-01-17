@@ -8,7 +8,7 @@ module.exports = new Promise(resolve => {
 }).then(async (cga) => {
 
     let bryan = {};
-    bryan.延迟 = utils.wait;
+    bryan.等待 = utils.wait;
     bryan.信息提示 = utils.info;
 
     // *. 获取用户配置
@@ -389,6 +389,20 @@ module.exports = new Promise(resolve => {
     }
     bryan.获取指定物品 = getItemByName;
 
+    // 57. 获取剩余打卡时间
+    let getPlayerWorkTime = () => {
+        let info = cga.GetPlayerInfo();
+        return info.punchclock;
+    };
+    bryan.获取剩余打卡时间 = getPlayerWorkTime;
+
+    // 58. 获取是否已经打卡
+    let isPlayerStartedWorking = () => {
+        let info = cga.GetPlayerInfo();
+        return info.usingpunchclock;
+    }
+    bryan.获取是否已经打卡 = isPlayerStartedWorking;
+
     /* ------------------------------------------------------------------------ */
     /* --------------------------------- 操作 --------------------------------- */
     /* ------------------------------------------------------------------------ */
@@ -396,6 +410,9 @@ module.exports = new Promise(resolve => {
     // 100. 自动寻路
     let walkTo = async (x, y, warp = false) => {
         let mapInfo = cga.getMapInfo();
+        if(mapInfo.x == x && mapInfo.y == y) {
+            return true;
+        }
         utils.info(`自动寻路：当前位置(${mapInfo.x}, ${mapInfo.y}) -> 寻路目标(${x}, ${y})`);
 
         // 寻路并移动
