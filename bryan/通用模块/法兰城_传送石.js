@@ -1,4 +1,7 @@
-let thisobj = (目标, 登出 = false, option = {}) => require('../api').then(async (cga) => {
+let thisobj = async (目标, 登出 = false, option = {}) => {
+
+    // 初始化精简命令
+    await require('../api')();
 
     /**
      * 法兰城传送点：东门、西门、南门
@@ -68,6 +71,6 @@ let thisobj = (目标, 登出 = false, option = {}) => require('../api').then(as
         [最短距离, 最近坐标] = await 计算所有最近距离();
     }
 
-});
+};
 
 module.exports = thisobj;

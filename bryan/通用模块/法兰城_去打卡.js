@@ -1,4 +1,7 @@
-let thisobj = (登出 = true) => require('../api').then(async (cga) => {
+let thisobj = async (登出 = true) => {
+
+    // 初始化
+    await require('../api')();
 
     /**
      * 法兰城启动，或者设置登出到法兰城(要求登陆点在法兰城)
@@ -35,6 +38,6 @@ let thisobj = (登出 = true) => require('../api').then(async (cga) => {
 
 
     信息提示(`\n执行脚本：成功|${登出 == true ? '登出回城，' : ''}去法兰城打卡`)
-});
+};
 
 module.exports = thisobj;
