@@ -94,9 +94,10 @@ let thisobj = async (entry = {}, lookForNpc = [], save = true, autoOpenBox = tru
             for(let y = y_start; y < y_bottom; y++) {
                 if(downloaded[y] == undefined) { downloaded[y] = []; } 
                 for(let x = x_start; x < x_bottom; x++) {
-                    if(downloaded[y][x] == undefined) { downloaded[y][x] == 1; count++; }
+                    if(downloaded[y][x] == undefined) { downloaded[y][x] = 1; count++; }
                 }
             }
+            // console.log(`(${x_start},${y_start}) - ${x_bottom},${y_bottom}) -> ${count}`);
             if(count > threadhold) {
                 await bryan.waitBattleFinish(0);
                 await cga.RequestDownloadMap(x_start, y_start, x_bottom, y_bottom);
@@ -145,7 +146,7 @@ let thisobj = async (entry = {}, lookForNpc = [], save = true, autoOpenBox = tru
 
         let top_left, top_right, bottom_right, bottom_left;
         try {
-            top_left = await download(pos.x - size, pos.y - size, pos.x, pos.y);
+            top_left = await download(pos.x - size, pos.y - size, pos.x, pos.y); 
             top_right = await download(pos.x, pos.y - size, pos.x + size, pos.y);
             bottom_right = await download(pos.x, pos.y, pos.x + size, pos.y + size);
             bottom_left = await download(pos.x - size, pos.y, pos.x, pos.y + size);
@@ -428,12 +429,15 @@ let thisobj = async (entry = {}, lookForNpc = [], save = true, autoOpenBox = tru
         // 下载地图, 等待地图打开
         let mapXY = await cga.getMapXY();
         let x = parseInt(mapXY.x), y = parseInt(mapXY.y);
+        
 
         // console.log('开始下载地图');
-        if (!lookForNpc || lookForNpc.length < 1) {
+        // if (!lookForNpc || lookForNpc.length < 1) {
             await bryan.waitBattleFinish();
             await refreshPlayerMap(scan_size, downloaded);
-        }
+            // print(downloaded, {x: x, y: y});
+            // return;
+        // }
 
         // console.log('开始下载地图完成');
         // 获取最新的地图数据

@@ -10,7 +10,7 @@
 //require('./法兰城_去银行')();
 
 
-// require('./插件_自动走迷宫_优化')({}, ['宝箱'], false);
+require('./插件_自动走迷宫_优化')({}, ['宝箱'], false);
 
 let print = (data, mark) => {
     let arr = JSON.parse(JSON.stringify(data));
@@ -26,7 +26,7 @@ let print = (data, mark) => {
     console.log(str);
 }
 
-require('../api')().then((bryan) => {
-    console.log(cga.buildMapCollisionRawMatrix());
-    print(cga.buildMapCollisionRawMatrix().matrix);
-});
+// require('../api')().then((bryan) => {
+//     console.log(cga.buildMapCollisionRawMatrix());
+//     print(cga.buildMapCollisionRawMatrix().matrix);
+// });

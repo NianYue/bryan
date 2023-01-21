@@ -7,7 +7,7 @@ module.exports = async (cga) => {
     return new Promise(async (resolve) => {
 
         // 框架加载
-        let version = '版本(v0.0.2)';
+        let version = '版本(v0.0.3)';
         cga = cga ? cga : global.cga;
         if (global.bryan) { return resolve(global.bryan); }
         utils.info(cga ? `加载简单指令系统|${version}` : `简单指令系统|${version} 尝试重新初始化...`);
