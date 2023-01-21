@@ -461,6 +461,7 @@ module.exports = async (cga) => {
                 return n.x >= min_x && n.y >= min_y && n.x <= max_x && n.y <= max_y && !exclude.find(p => p.x == n.x && p.y == n.y);
             }
             let entries = objects.filter(n => n.cell == 3).filter(fn);
+            console.log(entries);
             return entries.length > 0 ? entries[0] : null;
         };
         bryan.获取周围随机传送点 = getRandomEntryPoint;
@@ -489,7 +490,7 @@ module.exports = async (cga) => {
             utils.info(`自动寻路：当前位置(${mapInfo.x}, ${mapInfo.y}) -> 寻路目标(${x}, ${y})`);
 
             // 寻路并移动
-            let swap = null;
+            let arrived = false, swap = null;
             if (mapInfo.x != x || mapInfo.y != y) {
                 let around = await getAroundMovable(x, y);
                 if(warp && around && around.length > 0) {
@@ -513,7 +514,8 @@ module.exports = async (cga) => {
                 }
 
                 // 异步移动指令
-                let move = (x, y) => {
+                let move = async (x, y) => {
+                    await waitBattleFinish(50);
                     return new Promise((resolve, reject) => {
                         cga.AsyncWalkTo(x, y, null, null, null, (error, reason) => {
                             if (error) {
@@ -527,7 +529,8 @@ module.exports = async (cga) => {
                 // 按照路径行走
                 for (let i = 0; i < walkList.length; i++) {
                     let [x, y] = [walkList[i][0], walkList[i][1]];
-                    let arrived = await move(x, y).then(() => { return true; }).catch(async (result) => {
+                    arrived = await move(x, y).then(() => { return true; }).catch(async (result) => {
+                        // 移动异常
                         if (!result || !result.error || typeof result.reason != 'number') {
                             utils.error(`自动寻路：未知错误，无法到达(${x}, ${y})`);
                             return false;
@@ -545,11 +548,12 @@ module.exports = async (cga) => {
                             return false;
                         }
 
-                        let pos = cga.getMapInfo();
+                        await waitBattleFinish();
+                        let pos = await cga.getMapInfo();
                         return x == pos.x && y == pos.y;
                     });
                     if (!arrived) {
-                        return false;
+                        break;
                     }
                 }
             }
@@ -559,10 +563,9 @@ module.exports = async (cga) => {
             if (warp === true && await getMapName() == mapInfo.name) {
                 if (swap) {
                     // console.log('2');
-                    await utils.wait(1000);
                     await waitBattleFinish();
-                    cga.WalkTo(x, y);
-                    await utils.wait(3000);
+                    await cga.WalkTo(x, y);
+                    await utils.wait(1000);
                 } else {
                     // console.log('3');
                     cga.FixMapWarpStuck(1);
@@ -571,18 +574,18 @@ module.exports = async (cga) => {
                 }
             }
 
-            return true;
+            return arrived;
         };
         bryan.自动寻路 = walkTo;
         bryan._internal['walkTo'] = walkTo;
 
         // 101. 等待战斗结束
-        let waitBattleFinish = async (delay = 3000, max = 100) => {
+        let waitBattleFinish = async (delay = 1000, max = 100) => {
             // 
             let wait = () => {
                 return new Promise((resolve, reject) => {
                     if (cga.isInNormalState() != true) {
-                        return setTimeout(() => reject(), Math.abs(delay - 1000));
+                        return setTimeout(() => reject(), Math.max(0 ,3000 - delay));
                     }
                     return resolve();
                 });
@@ -590,7 +593,7 @@ module.exports = async (cga) => {
             let times = 0;
             let finished = false;
             do {
-                await utils.wait(1000);
+                await utils.wait(delay);
                 await wait().then(() => finished = true, () => finished = false);
             } while (!finished && times++ < max);
         };
@@ -968,6 +971,26 @@ module.exports = async (cga) => {
         bryan.自动贩卖 = talkNpcForSell;
         bryan._internal['talkNpcForSell'] = talkNpcForSell;
 
+        // 111. 使用物品
+        let useItem = async (name, x, y) => {
+            if(!name || typeof name != 'string') {
+                return false;
+            }
+            if(x && y && x >= 0 && y >= 0) {
+                await cga.turnTo(x, y);
+                await utils.wait(1000);
+            }
+            let item = cga.getInventoryItems().find(n => n.name == name);
+            if(item) {
+                cga.UseItem(item.pos);
+                await utils.wait(1000);
+                return true;
+            }
+            return false;
+        };
+        bryan.使用物品 = useItem;
+        bryan._internal['useItem'] = useItem;
+
         // 界面设置
 
         // await setMoveSpeed();
@@ -1005,7 +1028,6 @@ module.exports = async (cga) => {
          * 导出方法区
          */
         global.cga = cga;
-        global.bryan = bryan;
         for (let key in bryan) {
             if (key != '_internal') {
                 global[key] = bryan[key];
@@ -1013,6 +1035,6 @@ module.exports = async (cga) => {
             }
         }
 
-        return resolve(bryan);
+        return resolve(bryan._internal);
     });
 }

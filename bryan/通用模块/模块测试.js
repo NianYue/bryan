@@ -10,17 +10,23 @@
 //require('./法兰城_去银行')();
 
 
-    // 计算视图范围
-    let range = (x, y, size_x, size_y, extend) => {
-        let top = {
-            x: (x - extend) > 0 ? x - extend : 0,
-            y: (y - extend) > 0 ? y - extend : 0
-        };
-        let bottom = {
-            x: (x + extend + 1) < size_x ? x + extend + 1 : size_x,
-            y: (y + extend + 1) < size_y ? y + extend + 1 : size_y
-        }
-        return { top: top, bottom: bottom };
-    };
+// require('./插件_自动走迷宫_优化')({}, ['宝箱'], false);
 
-    console.log(range(10, 17, 60, 60, 10));
+let print = (data, mark) => {
+    let arr = JSON.parse(JSON.stringify(data));
+    if (mark) { arr[mark.y][mark.x] = '*'; }
+    let str = '';
+    for (let col of arr) {
+        if (!col) { continue; }
+        for (let row of col) {
+            str += (row != undefined ? row : ' ') + ' ';
+        }
+        str += '\n';
+    }
+    console.log(str);
+}
+
+require('../api')().then((bryan) => {
+    console.log(cga.buildMapCollisionRawMatrix());
+    print(cga.buildMapCollisionRawMatrix().matrix);
+});
