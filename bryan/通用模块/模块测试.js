@@ -9,22 +9,21 @@
 
 //require('./法兰城_去银行')();
 
+require('./插件_自动走迷宫_宝箱')(['水之洞窟', '水之迷宫']);
 
-require('./插件_自动走迷宫_优化')({}, ['宝箱'], false);
-
-let print = (data, mark) => {
-    let arr = JSON.parse(JSON.stringify(data));
-    if (mark) { arr[mark.y][mark.x] = '*'; }
-    let str = '';
-    for (let col of arr) {
-        if (!col) { continue; }
-        for (let row of col) {
-            str += (row != undefined ? row : ' ') + ' ';
-        }
-        str += '\n';
-    }
-    console.log(str);
-}
+// let print = (data, mark) => {
+//     let arr = JSON.parse(JSON.stringify(data));
+//     if (mark) { arr[mark.y][mark.x] = '*'; }
+//     let str = '';
+//     for (let col of arr) {
+//         if (!col) { continue; }
+//         for (let row of col) {
+//             str += (row != undefined ? row : ' ') + ' ';
+//         }
+//         str += '\n';
+//     }
+//     console.log(str);
+// }
 
 // require('../api')().then((bryan) => {
 //     console.log(cga.buildMapCollisionRawMatrix());

@@ -6,7 +6,7 @@ let 自动走迷宫插件 = require('../通用模块/插件_自动走迷宫_优�
 
 let 狗洞练级 = async (是否需要初始化 = true) => require('../api')().then(async () => {
 
-    let 保护状态 = {
+    let 保护设置 = {
         min_hp: 200,
         min_mp: 0,
         min_pet_hp: 200,
@@ -38,19 +38,21 @@ let 狗洞练级 = async (是否需要初始化 = true) => require('../api')().t
         if (地图名称 != '亚留特村' && 地图名称 != '阿鲁巴斯实验所' && 地图名称 != '芙蕾雅'
             && !地图名称.startsWith('奇怪的洞窟') && 地图名称 != '阿鲁巴斯研究所' && 地图名称 != '香蒂的房间') {
             await 传送去亚留特村(true, { target: '亚留特村' });
-        }
-
-        if (await 检查当前状态(保护状态)) {
             await 回村补血();
         }
 
-        while (await 获取地图名称() == '亚留特村') {
+        while (await 检查当前状态(保护设置)) {
+            await 回村补血();
+            await 等待(3000);
+        }
+
+        while (await 获取地图名称() == '亚留特村' || await 获取地图名称() == '芙蕾雅') {
             await 亚留特村进入狗洞();
             await 等待(1000);
         }
 
         let 迷宫入口 = await 获取人物坐标();
-        await 高速遇敌(保护状态);
+        await 高速遇敌(保护设置);
         while (await 获取地图名称().startsWith('奇怪的洞窟')) {
             if (await 获取物品数量() >= 20) {
                 await 登出回城();
@@ -70,17 +72,23 @@ let 法兰卖魔石 = async () => {
         return;
     }
 
-    await 传送石('西门', false, { x: 94, y: 78 });
-    if (await 获取地图名称() == '达美姊妹的店') {
-        await 自动寻路(17, 18);
-        await 等待(1000);
-    }
     while (await 获取物品数量('魔石') > 0) {
-        let npc = await 获取周围NPC坐标('耶莱达美') || await 获取周围NPC坐标('耶来达美') || await 获取周围NPC坐标('耶菜达美');
+        // 达美姊妹的店
+        await 传送石('西门', false, { x: 94, y: 78 });
+        if (await 获取地图名称() == '达美姊妹的店') {
+            await 自动寻路(17, 18);
+            await 等待(1000);
+        }
+
+        // 寻找贩卖NPC
+        let 达美 = await 获取周围NPC坐标('耶莱达美') || await 获取周围NPC坐标('耶来达美') || await 获取周围NPC坐标('耶菜达美');
         // console.log(npc);
-        if (npc) {
-            await 自动寻路(npc.xpos - 2, npc.ypos);
-            await 自动贩卖(npc.xpos, npc.ypos, ['魔石']);
+        if (达美) {
+            await 自动寻路(达美.xpos - 2, 达美.ypos);
+            await 自动贩卖(达美.xpos, 达美.ypos, ['魔石']);
+        } else {
+            await 登出回城();
+            await 等待(1000);
         }
         await 等待(3000);
     }
@@ -112,7 +120,7 @@ let 亚留特村进入狗洞 = async () => {
             }
         }
         await 等待战斗结束(3000);
-        if (await 获取地图名称() == '芙蕾雅' && !坐标) {
+        if (await 获取地图名称() == '芙蕾雅') {
             await 自动寻路(549, 43, true);
             await 等待(3000);
             while (await 获取地图名称() == '亚留特西方洞窟') {
@@ -123,7 +131,7 @@ let 亚留特村进入狗洞 = async () => {
     }
 }
 
-let 回村补血 = async (保护状态) => {
+let 回村补血 = async () => {
 
     while (await 获取地图名称() == '芙蕾雅') {
         await 自动寻路(588, 51, true);
@@ -135,15 +143,15 @@ let 回村补血 = async (保护状态) => {
         await 等待(1000);
     }
 
-    while (await 获取地图名称() == '医院' && await 检查当前状态(保护状态)) {
+    if (await 获取地图名称() == '医院') {
         await 自动寻路(10, 5);
         await 对话NPC(12, 5);
         await 等待(5000);
-    }
 
-    while (await 获取地图名称() == '医院' && !await 检查当前状态(保护状态)) {
-        await 自动寻路(2, 9, true);
-        await 等待(1000);
+        while (await 获取地图名称() != '亚留特村') {
+            await 自动寻路(2, 9, true);
+            await 等待(3000);
+        }
     }
 
 }

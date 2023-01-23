@@ -7,7 +7,7 @@ module.exports = async (cga) => {
     return new Promise(async (resolve) => {
 
         // 框架加载
-        let version = '版本(v0.0.3)';
+        let version = '版本(v0.0.4)';
         cga = cga ? cga : global.cga;
         if (global.bryan) { return resolve(global.bryan); }
         utils.info(cga ? `加载简单指令系统|${version}` : `简单指令系统|${version} 尝试重新初始化...`);
@@ -536,7 +536,8 @@ module.exports = async (cga) => {
 
                 // 异步移动指令
                 let move = async (x, y) => {
-                    await waitBattleFinish(50);
+                    // await waitBattleFinish(50);
+                    utils.debug(`移动(${x},${y})`)
                     return new Promise((resolve, reject) => {
                         cga.AsyncWalkTo(x, y, null, null, null, (error, reason) => {
                             if (error) {
@@ -550,6 +551,7 @@ module.exports = async (cga) => {
                 // 按照路径行走
                 for (let i = 0; i < walkList.length; i++) {
                     let [x, y] = [walkList[i][0], walkList[i][1]];
+                    utils.debug(walkList[i]);
                     arrived = await move(x, y).then(() => { return true; }).catch(async (result) => {
                         // 移动异常
                         if (!result || !result.error || typeof result.reason != 'number') {
@@ -558,7 +560,8 @@ module.exports = async (cga) => {
                         }
                         if (result.reason == 2 || result.reason == 5) {
                             // 战斗或者服务器坐标更新（回退），需要等待战斗结束重新计算目标路径
-                            await waitBattleFinish();
+                            utils.debug(`遇敌等待(${x},${y})`)
+                            await waitBattleFinish(3000);
                             return await walkTo(x, y, false);
                         } else if (result.reason == 3) {
                             utils.error(`自动寻路：严重错误，无法到达(${x}, ${y})`);
@@ -568,8 +571,7 @@ module.exports = async (cga) => {
                             utils.error(`自动寻路：地图刷新或者发生切换，无法到达(${x}, ${y})`);
                             return false;
                         }
-
-                        await waitBattleFinish();
+                        // await waitBattleFinish(1000);
                         let pos = await cga.getMapInfo();
                         return x == pos.x && y == pos.y;
                     });
@@ -583,10 +585,12 @@ module.exports = async (cga) => {
             // utils.info(`自动寻路：到达(${x}, ${y})`);
             if (warp === true) {
                 // console.log(cga.getMapObjects());
+                let times = 0, retry = 3;
                 let target = await cga.getMapObjects().find(n => (n.cell == 3 || n.cell == 10) && n.x == x && n.y == y);
-                while (target && await getMapName() == mapInfo.name) {
+                while (target && await getMapName() == mapInfo.name && times < retry) {
+                    times++;
                     await cga.WalkTo(x, y);
-                    await utils.wait(1000);
+                    await utils.wait(2000);
                     if (await getMapName() == mapInfo.name) {
                         await waitBattleFinish(5000);
                         await cga.FixMapWarpStuck(1);
@@ -748,6 +752,7 @@ module.exports = async (cga) => {
                 utils.info(`高速遇敌：触发游戏状态保护，停止高速遇敌`);
                 return true;
             }
+            let current = await getMapName();
             let entries = await cga.getMapObjects().filter(n => n.cell == 3);
             let pos = cga.getMapInfo(), matrix = cga.buildMapCollisionMatrix().matrix;
             let available = utils.findAroundMovablePos(pos.x, pos.y, matrix).find(n => entries.find(e => n.x != e.x || n.y != e.y));
@@ -775,7 +780,7 @@ module.exports = async (cga) => {
                     } while (cga.isInNormalState());
                     await waitBattleFinish();
                     let invalid = await checkProtectStatus(protect);
-                    if (invalid) {
+                    if (invalid || current != await getMapName()) {
                         utils.info(`高速遇敌：触发游戏状态保护，停止高速遇敌`);
                         return true;
                     }

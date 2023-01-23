@@ -1,4 +1,4 @@
-let thisobj = async (entry = {}, lookForNpc = [], save = true, autoOpenBox = false) => {
+let thisobj = async (lookForNpc = [], lookForBox = [], cache = true) => {
 
     // 初始化精简命令
     let bryan = await require('../api')();
@@ -20,22 +20,21 @@ let thisobj = async (entry = {}, lookForNpc = [], save = true, autoOpenBox = fal
     map.name = await cga.GetMapName();
     map.line = await cga.GetMapIndex().index2;
 
-    autoOpenBox = autoOpenBox && bryan.getItemByName('铜钥匙');
+    let autoOpenBox = lookForBox && lookForBox.length > 0;
     let pos = await cga.getMapXY(), filename = `${map.line}线_${map.name}_.json`;
     while (cga.getRandomSpace(pos.x, pos.y) == null) {
         await utils.wait(3000);
     }
-    let exist = save && await utils.readMap(filename);
+    let exist = cache && await utils.readMap(filename);
     let current = await cga.getMapObjects().filter(n => n.cell == 3);
-    let startEntry = entry && entry.x && entry.y ? entry : current.find(n => n.x == pos.x && n.y == pos.y);
+    let start = current.find(n => n.x == pos.x && n.y == pos.y);
     let unrefresh = exist && exist.entries && exist.entries.length > 0 && current.find(n => exist.entries.find(e => e.x == n.x && e.y == n.y));
     // console.log(unrefresh);
-    if (!startEntry && exist && exist.entries && exist.entries.length > 0 && unrefresh) {
-        startEntry = exist.entries[0];
+    if (!start && exist && exist.entries && exist.entries.length > 0 && unrefresh) {
+        start = exist.entries[0];
     }
 
     // 初始化迷宫入口点
-    let start = startEntry;
     if (!start) {
         await utils.error('自动走迷宫：错误，请站在入口或者楼梯上启动脚本.');
         await utils.wait(3000);
@@ -51,7 +50,7 @@ let thisobj = async (entry = {}, lookForNpc = [], save = true, autoOpenBox = fal
     await utils.info(`自动走迷宫：入口坐标(${start.x}, ${start.y})`);
 
     map = unrefresh ? exist : map;
-    save = save && !unrefresh;
+    cache = cache && !unrefresh;
     // console.log(map);
     // console.log(lookForNpc);
     await bryan.setMoveSpeed(unrefresh ? 130 : 100);
@@ -186,8 +185,9 @@ let thisobj = async (entry = {}, lookForNpc = [], save = true, autoOpenBox = fal
     }
 
     // 查找宝箱单位
-    let getBoxUnits = async () => {
-        let units = await cga.GetMapUnits().filter(mapUnit => mapUnit['flags'] & 1024 && mapUnit['model_id'] > 0 && mapUnit['item_name'] == '宝箱');
+    let getBoxUnits = async (lookForBox = ['宝箱', '黑色宝箱', '白色宝箱']) => {
+        let units = await cga.GetMapUnits().filter(unit => unit['flags'] & 1024 && unit['model_id'] > 0)
+            .filter(unit => lookForBox.find(n => n == unit['item_name']));
         return units;
     }
 
@@ -557,14 +557,14 @@ let thisobj = async (entry = {}, lookForNpc = [], save = true, autoOpenBox = fal
         let mapXY = await cga.getMapXY();
         let x = parseInt(mapXY.x), y = parseInt(mapXY.y);
 
-        // 获取最新的地图数据
+        // 1.1 获取最新的地图数据
         let collitions = await cga.buildMapCollisionMatrix(false);
         let matrix = collitions.matrix, size_x = collitions.x_size, size_y = collitions.y_size;
         // console.log(`地图大小(${size_x}, ${size_y})`);
 
 
 
-        // 1.更新可探索范围区域
+        // 1.2 更新可探索范围区域
         for (let y = 0; y < size_y; y++) {
             if (walked[y] == undefined) { walked[y] = []; nav[y] = []; }
             for (let x = 0; x < size_x; x++) {
@@ -573,18 +573,37 @@ let thisobj = async (entry = {}, lookForNpc = [], save = true, autoOpenBox = fal
         }
 
 
-        // 2.更新已探索范围区域
+        // 2.1 更新已探索范围区域
         search(walked, { x: x, y: y }, search_size);
         search(nav, { x: x, y: y }, Math.floor(search_size / 2));
 
 
         // console.log('开始下载地图');
+        // 2.2 下载地图
         if (!lookForNpc || lookForNpc.length < 1) {
+            await refreshPlayerMap(Math.floor(scan_size / 1.2), downloaded, walked);
+            await bryan.waitBattleFinish(1000);
+        } else {
             await refreshPlayerMap(scan_size, downloaded, walked);
             await bryan.waitBattleFinish(1000);
         }
         // console.log('开始下载地图完成');
 
+        
+        // 2.3 更新最新的地图数据
+        collitions = await cga.buildMapCollisionMatrix(false);
+        matrix = collitions.matrix, size_x = collitions.x_size, size_y = collitions.y_size;
+        // console.log(`地图大小(${size_x}, ${size_y})`);
+
+
+
+        // 2.4 更新可探索范围区域
+        for (let y = 0; y < size_y; y++) {
+            if (walked[y] == undefined) { walked[y] = []; nav[y] = []; }
+            for (let x = 0; x < size_x; x++) {
+                if (walked[y][x] == undefined || walked[y][x] <= flag_blocked) { walked[y][x] = matrix[y][x]; nav[y][x] = matrix[y][x]; }
+            }
+        }
 
 
 
@@ -616,7 +635,7 @@ let thisobj = async (entry = {}, lookForNpc = [], save = true, autoOpenBox = fal
             let path = finder.findPath(x, y, target.xpos, target.ypos, grid);
             if (path.length > 0) {
                 await utils.info(`成功找到NPC坐标(${target.xpos} ,${target.ypos})`);
-                if (save) {
+                if (cache) {
                     await utils.writeMap(filename, map);
                 }
                 let arounds = utils.findAroundMovablePos(target.xpos, target.ypos, matrix);
@@ -627,11 +646,22 @@ let thisobj = async (entry = {}, lookForNpc = [], save = true, autoOpenBox = fal
 
         // 3.4 自动开宝箱
         if (autoOpenBox) {
-            let boxUnits = await getBoxUnits();
+            let targets = lookForBox.filter(n => {
+                return (n == '宝箱' && bryan.getItemByName('铜钥匙'))
+                    || (n == '黑色宝箱' && bryan.getItemByName('黑钥匙'))
+                    || n == '白色宝箱' && bryan.getItemByName('白钥匙');
+            });
+            let boxUnits = await getBoxUnits(targets);
             for (let box of boxUnits) {
                 let around = await bryan.getAroundMovable(box.xpos, box.ypos);
                 if (around && around.length > 0 && await bryan.walkTo(around[0].x, around[0].y)) {
-                    await bryan.useItem('铜钥匙', box.xpos, box.ypos);
+                    if (box.item_name == '宝箱') {
+                        await bryan.useItem('铜钥匙', box.xpos, box.ypos);
+                    } else if (box.item_name == '黑色宝箱') {
+                        await bryan.useItem('黑钥匙', box.xpos, box.ypos);
+                    } else if (box.item_name == '白色宝箱') {
+                        await bryan.useItem('白钥匙', box.xpos, box.ypos);
+                    }
                 }
             }
         }
@@ -647,7 +677,7 @@ let thisobj = async (entry = {}, lookForNpc = [], save = true, autoOpenBox = fal
                 let other = map.entries.find(n => n.x != start.x || n.y != start.y);
                 await utils.info(`自动走迷宫：出口坐标(${other.x} ,${other.y}), icon: ${other.icon}`);
                 if (!lookForNpc || lookForNpc.length < 1) {
-                    if (save) {
+                    if (cache) {
                         await utils.writeMap(filename, map);
                     }
                     await bryan.walkTo(other.x, other.y, true);
@@ -665,7 +695,7 @@ let thisobj = async (entry = {}, lookForNpc = [], save = true, autoOpenBox = fal
             let other = map.entries.find(n => n.x != start.x || n.y != start.y);
             map.path = finder.findPath(start.x, start.y, other.x, other.y, grid);
             if (map.path.length > 0) {
-                if (save) {
+                if (cache) {
                     await utils.writeMap(filename, map);
                 }
                 let other = map.entries.find(n => n.x != start.x || n.y != start.y);
@@ -724,7 +754,7 @@ let thisobj = async (entry = {}, lookForNpc = [], save = true, autoOpenBox = fal
 
         if (!next) {
             if (map.path.length > 0) {
-                if (save) {
+                if (cache) {
                     await utils.writeMap(filename, map);
                 }
                 let other = map.entries.find(n => n.x != start.x || n.y != start.y);
