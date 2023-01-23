@@ -22,7 +22,7 @@ let 挑战僵尸王 = async (是否需要初始化 = true) => require('../api')(
     let 地图名称 = await 获取地图名称();
     if (地图名称 != '亚留特村' && 地图名称 != '阿鲁巴斯实验所' && 地图名称 != '芙蕾雅'
         && !地图名称.startsWith('奇怪的洞窟') && 地图名称 != '阿鲁巴斯研究所' && 地图名称 != '香蒂的房间') {
-        await 传送去亚留特村(true, { target: '亚留特村' });
+        await 传送去亚留特村(false, { target: '亚留特村' });
     }
 
     while (await 获取地图名称() == '亚留特村') {
@@ -37,7 +37,7 @@ let 挑战僵尸王 = async (是否需要初始化 = true) => require('../api')(
         return await 获取周围随机传送点(黑名单坐标);
     }
     while (await 获取地图名称() == '芙蕾雅') {
-        await 自动寻路(545, 35);
+        await 自动寻路(544, 35);
         let 坐标 = await 获取奇怪的洞窟入口();
         if (坐标) {
             await 自动寻路(坐标.x, 坐标.y, true);
@@ -68,8 +68,6 @@ let 挑战僵尸王 = async (是否需要初始化 = true) => require('../api')(
                 await 对话NPC(无照护士米内鲁帕.xpos, 无照护士米内鲁帕.ypos, ['确定']);
                 await 等待(1000);
             }
-            // 走到迷宫下一层
-            await 自动走迷宫插件(result.entries[0]);
         }
     }
 
@@ -80,8 +78,9 @@ let 挑战僵尸王 = async (是否需要初始化 = true) => require('../api')(
 
     while (await 获取地图名称() == '阿鲁巴斯实验所' && await 获取指定物品('实验药')) {
         await 自动寻路(21, 19);
+        await 等待(3000);
         await 对话NPC(21, 18);
-        await 等待战斗结束();
+        await 等待战斗结束(3000);
         await 等待(3000);
     }
 

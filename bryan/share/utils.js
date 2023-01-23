@@ -4,6 +4,10 @@ let info = (msg) => {
     console.log(msg);
 };
 
+let debug = (msg) => {
+    // console.log(msg);
+}
+
 let error = (msg) => {
     console.log(msg);
 };
@@ -152,6 +156,7 @@ let readMap = async (filename) => {
 
 let thisobj = {
     'info': info,
+    'debug' : debug,
     'error': error,
     'wait': delay,
     'deepMerge': deepMerge,

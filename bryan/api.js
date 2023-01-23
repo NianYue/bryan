@@ -461,7 +461,7 @@ module.exports = async (cga) => {
                 return n.x >= min_x && n.y >= min_y && n.x <= max_x && n.y <= max_y && !exclude.find(p => p.x == n.x && p.y == n.y);
             }
             let entries = objects.filter(n => n.cell == 3).filter(fn);
-            console.log(entries);
+            // utils.debug(entries);
             return entries.length > 0 ? entries[0] : null;
         };
         bryan.获取周围随机传送点 = getRandomEntryPoint;
@@ -469,12 +469,33 @@ module.exports = async (cga) => {
 
         // 60. 获取周围可移动坐标
         let getAroundMovable = async (x, y) => {
+            let pos = getPlayerPos();
             let matrix = cga.buildMapCollisionMatrix().matrix;
-            let available = utils.findAroundMovablePos(x, y, matrix);
+            let available = utils.findAroundMovablePos(x, y, matrix).sort((a, b) => {
+                let d1 = Math.abs(pos.x - a.x) + Math.abs(pos.y - a.y);
+                let d2 = Math.abs(pos.x - b.x) + Math.abs(pos.y - b.y);
+                return d1 - d2;
+            });
             return available;
         };
         bryan.获取周围可移动坐标 = getAroundMovable;
         bryan._internal['getAroundMovable'] = getAroundMovable;
+
+        // 61. 获取物品数量
+        let getPlayerItemCount = (name) => {
+            return cga.getInventoryItems().filter(item => !name || item.name == name).length;
+        }
+        bryan.获取物品数量 = getPlayerItemCount;
+        bryan._internal['getPlayerItemCount'] = getPlayerItemCount;
+
+        // 62 获取周围NPC坐标
+        let getArounNpcUnitPos = async (name) => {
+            let units = await cga.GetMapUnits().filter(mapUnit => mapUnit['flags'] & 4096 && mapUnit['model_id'] > 0 && mapUnit['level'] == 1);
+            // console.log(units);
+            return units.find(n => n.unit_name == name);
+        };
+        bryan.获取周围NPC坐标 = getArounNpcUnitPos;
+        bryan._internal['getArounNpcUnitPos'] = getArounNpcUnitPos;
 
         /* ------------------------------------------------------------------------ */
         /* --------------------------------- 操作 --------------------------------- */
@@ -487,17 +508,17 @@ module.exports = async (cga) => {
             if (mapInfo.x == x && mapInfo.y == y && !warp) {
                 return true;
             }
-            utils.info(`自动寻路：当前位置(${mapInfo.x}, ${mapInfo.y}) -> 寻路目标(${x}, ${y})`);
+            utils.debug(`自动寻路：当前位置(${mapInfo.x}, ${mapInfo.y}) -> 寻路目标(${x}, ${y})`);
 
             // 寻路并移动
             let arrived = false, swap = null;
             if (mapInfo.x != x || mapInfo.y != y) {
                 let around = await getAroundMovable(x, y);
-                if(warp && around && around.length > 0) {
+                if (warp && around && around.length > 0) {
                     let matrix = cga.buildMapCollisionMatrix(true).matrix;
-                    for(let i = 0; i < around.length; i++) {
+                    for (let i = 0; i < around.length; i++) {
                         let path = utils.findPath(mapInfo.x, mapInfo.y, around[i].x, around[i].y, matrix);
-                        if(path && path.length > 0) {
+                        if (path && path.length > 0) {
                             swap = around[i];
                             break;
                         }
@@ -505,7 +526,7 @@ module.exports = async (cga) => {
                 }
 
                 // 替换目的地
-                let target = warp && swap ? {x: swap.x, y: swap.y} : {x: x, y: y};
+                let target = warp && swap ? { x: swap.x, y: swap.y } : { x: x, y: y };
                 let matrix = warp && swap ? cga.buildMapCollisionMatrix(true).matrix : cga.buildMapCollisionMatrix(false).matrix;
                 let walkList = utils.findPath(mapInfo.x, mapInfo.y, target.x, target.y, matrix);
                 if (!walkList || walkList.length < 1) {
@@ -560,17 +581,17 @@ module.exports = async (cga) => {
 
             // 移动完成切图操作
             // utils.info(`自动寻路：到达(${x}, ${y})`);
-            if (warp === true && await getMapName() == mapInfo.name) {
-                if (swap) {
-                    // console.log('2');
-                    await waitBattleFinish();
+            if (warp === true) {
+                // console.log(cga.getMapObjects());
+                let target = await cga.getMapObjects().find(n => (n.cell == 3 || n.cell == 10) && n.x == x && n.y == y);
+                while (target && await getMapName() == mapInfo.name) {
                     await cga.WalkTo(x, y);
                     await utils.wait(1000);
-                } else {
-                    // console.log('3');
-                    cga.FixMapWarpStuck(1);
-                    await utils.wait(3000);
-                    await waitBattleFinish();
+                    if (await getMapName() == mapInfo.name) {
+                        await waitBattleFinish(5000);
+                        await cga.FixMapWarpStuck(1);
+                        await utils.wait(1000);
+                    }
                 }
             }
 
@@ -585,7 +606,7 @@ module.exports = async (cga) => {
             let wait = () => {
                 return new Promise((resolve, reject) => {
                     if (cga.isInNormalState() != true) {
-                        return setTimeout(() => reject(), Math.max(0 ,3000 - delay));
+                        return setTimeout(() => reject(), Math.max(0, 3000 - delay));
                     }
                     return resolve();
                 });
@@ -711,7 +732,7 @@ module.exports = async (cga) => {
         bryan._internal['talkNpc'] = talkNpc;
 
         // 103. 高速遇敌
-        let fastMeetEnemy = async (config = {}, timeout = 100) => {
+        let fastMeetEnemy = async (config = {}, timeout = 300) => {
             let protect = {
                 min_hp: 1,
                 min_mp: 0,
@@ -727,9 +748,16 @@ module.exports = async (cga) => {
                 utils.info(`高速遇敌：触发游戏状态保护，停止高速遇敌`);
                 return true;
             }
+            let entries = await cga.getMapObjects().filter(n => n.cell == 3);
             let pos = cga.getMapInfo(), matrix = cga.buildMapCollisionMatrix().matrix;
-            let available = utils.findAroundMovablePos(pos.x, pos.y, matrix);
-            if (!available || available.length < 1) {
+            let available = utils.findAroundMovablePos(pos.x, pos.y, matrix).find(n => entries.find(e => n.x != e.x || n.y != e.y));
+            if(entries.find(n => n.x == pos.x && n.y == pos.y) && available) {
+                pos = available;
+                await walkTo(pos.x, pos.y);
+                await waitBattleFinish(3000);
+            }
+            available = utils.findAroundMovablePos(pos.x, pos.y, matrix).find(n => entries.find(e => n.x != e.x || n.y != e.y));
+            if (!available) {
                 utils.info(`高速遇敌：周围没有可移动的坐标，停止高速遇敌`);
                 return true;
             }
@@ -737,16 +765,16 @@ module.exports = async (cga) => {
                 try {
                     let times = 0;
                     do {
-                        if (times++ % 100 == 0) {
-                            console.log(`已经走动次数: ${times}`);
-                        }
                         let target = swap ? dest : pos;
                         cga.ForceMoveTo(target.x, target.y, false);
                         swap = !swap;
                         await utils.wait(timeout);
+                        if (times++ % 1000 == 0) {
+                            utils.debug(`高速遇敌：已经快速走动累计${times}次`);
+                        }
                     } while (cga.isInNormalState());
                     await waitBattleFinish();
-                    let invalid = await checkProtectStatus(min_hp, min_mp, max_injury, 20, min_team_nums);
+                    let invalid = await checkProtectStatus(protect);
                     if (invalid) {
                         utils.info(`高速遇敌：触发游戏状态保护，停止高速遇敌`);
                         return true;
@@ -757,12 +785,11 @@ module.exports = async (cga) => {
                 }
                 return await loop(pos, dest, swap);
             };
-            let swap = true, dest = available[0];
+            let swap = true, dest = available;
 
             // 避免刚切图遇敌先走动几步
             await cga.WalkTo(dest.x, dest.y);
             await utils.wait(1000);
-            await cga.WalkTo(pos.x, pos.y);
 
             return await loop(pos, dest, swap);
         };
@@ -973,15 +1000,15 @@ module.exports = async (cga) => {
 
         // 111. 使用物品
         let useItem = async (name, x, y) => {
-            if(!name || typeof name != 'string') {
+            if (!name || typeof name != 'string') {
                 return false;
             }
-            if(x && y && x >= 0 && y >= 0) {
+            if (x && y && x >= 0 && y >= 0) {
                 await cga.turnTo(x, y);
                 await utils.wait(1000);
             }
             let item = cga.getInventoryItems().find(n => n.name == name);
-            if(item) {
+            if (item) {
                 cga.UseItem(item.pos);
                 await utils.wait(1000);
                 return true;
@@ -991,47 +1018,14 @@ module.exports = async (cga) => {
         bryan.使用物品 = useItem;
         bryan._internal['useItem'] = useItem;
 
-        // 界面设置
-
-        // await setMoveSpeed();
-        // await setWorkDelay(5000);
-        // await setQuickSwitch();
-        // await setAutoSupply(false);
-        // await setKeepAlive();
-        // await setItemSupplyMagic(true, '30%', true);
-        // await setItemSupplyHealth(true, '10', false);
-        // await setAutoDropItems('卡片？');
-        // await setAutoOverlayItems('地的水晶碎片|999', true);
-        // await setFastBattle();
-        // await setAutoBattle();
-        // await setAutoBattleDelay(4000);
-        // await setAutoBattlePetEnhance();
-        // await setBattleTimeInfinite();
-        // await setAutoBattleFoundLv1Pet();
-        // await setAutoBattleFoundBoss();
-
-
-        // 游戏操作
-        // await walkTo(426, 260);
-        // await walkTo(477, 196);
-        // await talkNpc(47, 9, [1]);
-        // await fastMeetEnemy({ min_hp: 100, min_mp: 10, max_injury: 0, max_item_nums: 20, min_team_nums: 2, min_pet_hp: 1000 });
-        // await checkProtectStatus({ min_hp: 100, min_mp: 10 });
-        // await logBack();
-        // await logOut();
-        // await makeTeam(['法蘭回忆录灬遇', '法蘭回忆录灬秋', '法蘭回忆录灬秋1']);
-        // await kickoutTeam('法蘭回忆录灬秋');
-        // await joinTeam('法蘭回忆录灬遇');
-        // await talkNpcForSell(19, 18);
-
         /**
          * 导出方法区
          */
         global.cga = cga;
+        global.bryan = bryan._internal;
         for (let key in bryan) {
             if (key != '_internal') {
                 global[key] = bryan[key];
-                global.cga[key] = bryan[key];
             }
         }
 

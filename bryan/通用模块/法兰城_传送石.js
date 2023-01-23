@@ -49,14 +49,16 @@ let thisobj = async (目标, 登出 = false, option = {}) => {
 
     // 距离最近的传送石，如果设置option目标更接近的话优先到达指定目标
     let [最短距离, 最近坐标] = await 计算所有最近距离();
-    while (最短距离 > 0 || (最近坐标.name != 目标 && 最近坐标.name != '自定义') || (自定义坐标 && '自定义' != 最近坐标.name)) {
+    while (最短距离 > 0 || (最近坐标.name != 目标 && 最近坐标.name != '自定义') || (自定义坐标 && '自定义' != 最近坐标.name) || ('自定义' == 最近坐标.name && 自定义坐标 && 最短距离 == 0)) {
         // 走到最近的位置，如果已经再目标传送至尝试走到自定义坐标
-        // console.log(最近坐标);
-        if( 最短距离 == 0 && 目标 == 最近坐标.name && 自定义坐标) {
+        console.log(最短距离);
+        console.log(最近坐标);
+        if( '自定义' == 最近坐标.name && 自定义坐标 || (最近坐标.name == 目标 && 最短距离 == 0)) {
             await 自动寻路(option.x, option.y, true);
             break;
         }
-        await 自动寻路(最近坐标.x, 最近坐标.y, true);
+
+        await 自动寻路(最近坐标.x, 最近坐标.y, false);
         if (最近坐标.name != 目标 && 最近坐标.name != '自定义') {
             await 等待(1000);
             await cga.TurnTo(最近坐标.cx, 最近坐标.cy);

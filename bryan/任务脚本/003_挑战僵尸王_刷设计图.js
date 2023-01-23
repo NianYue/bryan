@@ -40,7 +40,7 @@ let 循环刷图 = async () => {
 
     await 加载框架();
     await 设置高速移动();
-    await 设置高速切图();
+    // await 设置高速切图();
     await 设置高速采集();
     await 设置自动补给();
     await 设置说话防掉线();
@@ -50,14 +50,20 @@ let 循环刷图 = async () => {
     await 设置自动战斗();
     await 设置战斗宠物二动();
 
+    let 开始时间 = Date.now(), 回合数 = 0;
+
     while (1) {
 
-        while (await 获取地图名称() == '芙蕾雅' && await 检查当前状态(保护状态)) {
+        let 地图名称 = await 获取地图名称();
+        while ((地图名称 == '芙蕾雅' || 地图名称 == '亚留特村') && await 检查当前状态(保护状态)) {
             await 回村补血();
             await 等待(3000);
         }
 
-        await 挑战僵尸王(false).catch(async () => await 登出回城());
+        await 挑战僵尸王(false).catch(async (error) => {
+            await 信息提示(error);
+            await 登出回城();
+        });
 
         while (await 获取地图名称() == '阿鲁巴斯研究所') {
             await 自动寻路(12, 15);
@@ -68,9 +74,12 @@ let 循环刷图 = async () => {
         while (await 获取地图名称() == '香蒂的房间') {
             await 自动寻路(9, 7);
             await 对话NPC(10, 7, ['下一步', '下一步', '下一步', '是', '是', '确定']);
+            回合数 = 回合数 + 1;
             await 等待(3000);
         }
 
+        let 总共耗时 = Math.floor((Date.now() - 开始时间) / 60000);
+        信息提示(`已经完成${回合数}轮，耗时：${总共耗时}分钟, 平均每轮耗时：${Math.floor(总共耗时 / 回合数)}分钟`)
     }
 };
 

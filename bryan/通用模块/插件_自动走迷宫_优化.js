@@ -1,4 +1,4 @@
-let thisobj = async (entry = {}, lookForNpc = [], save = true, autoOpenBox = true) => {
+let thisobj = async (entry = {}, lookForNpc = [], save = true, autoOpenBox = false) => {
 
     // 初始化精简命令
     let bryan = await require('../api')();
@@ -21,35 +21,42 @@ let thisobj = async (entry = {}, lookForNpc = [], save = true, autoOpenBox = tru
     map.line = await cga.GetMapIndex().index2;
 
     autoOpenBox = autoOpenBox && bryan.getItemByName('铜钥匙');
-    let pos = await cga.getMapXY(), filename = `${map.name}_${map.line}线.json`;
+    let pos = await cga.getMapXY(), filename = `${map.line}线_${map.name}_.json`;
     while (cga.getRandomSpace(pos.x, pos.y) == null) {
         await utils.wait(3000);
     }
-    let exist = await utils.readMap(filename);
+    let exist = save && await utils.readMap(filename);
     let current = await cga.getMapObjects().filter(n => n.cell == 3);
-    let foundEntry = current.find(n => (n.x == pos.x && n.y == pos.y) || (exist && exist.entries && exist.entries.find(e => n.x == e.x && n.y == e.y)));
+    let startEntry = entry && entry.x && entry.y ? entry : current.find(n => n.x == pos.x && n.y == pos.y);
+    let unrefresh = exist && exist.entries && exist.entries.length > 0 && current.find(n => exist.entries.find(e => e.x == n.x && e.y == n.y));
+    // console.log(unrefresh);
+    if (!startEntry && exist && exist.entries && exist.entries.length > 0 && unrefresh) {
+        startEntry = exist.entries[0];
+    }
 
     // 初始化迷宫入口点
-    let start = entry && entry.x && entry.y ? entry : foundEntry;
+    let start = startEntry;
     if (!start) {
         await utils.error('自动走迷宫：错误，请站在入口或者楼梯上启动脚本.');
         await utils.wait(3000);
         return Promise.reject();
     }
+
     let collisionRaw = await cga.buildMapCollisionRawMatrix();
     map.entries.push({
         x: parseInt(start.x),
         y: parseInt(start.y),
         icon: collisionRaw.matrix[start.y][start.x],
     });
+    await utils.info(`自动走迷宫：入口坐标(${start.x}, ${start.y})`);
 
-    let ready = exist && exist.entries && exist.entries.find(n => n.x == start.x && n.y == start.y) ? true : false;
-    map = ready == true ? exist : map;
-    save = save && !ready;
+    map = unrefresh ? exist : map;
+    save = save && !unrefresh;
     // console.log(map);
     // console.log(lookForNpc);
-    utils.info(`自动寻路: ${ready == true ? '地图已经开启' : '开始探索地图'}，寻找 -> ${lookForNpc && lookForNpc.length > 0 ? lookForNpc : '出口'}`);
-    if (ready) {
+    await bryan.setMoveSpeed(unrefresh ? 130 : 100);
+    utils.info(`自动走迷宫: ${unrefresh ? '地图已经开启，行走如风' : '开始探索地图'}，寻找 -> ${lookForNpc && lookForNpc.length > 0 ? lookForNpc : '出口'}`);
+    if (unrefresh) {
         let matrix = await cga.buildMapCollisionMatrix(false).matrix;
         let grid = new PF.Grid(matrix);
         let target = map.units.find(unit => lookForNpc.find(name => name == unit.unit_name));
@@ -66,10 +73,11 @@ let thisobj = async (entry = {}, lookForNpc = [], save = true, autoOpenBox = tru
             }
         }
         if (map.entries && map.entries.length > 1) {
-            let path = finder.findPath(pos.x, pos.y, map.entries[1].x, map.entries[1].y, grid);
+            let other = exist.entries.find(n => n.x != start.x || n.y != start.y);
+            let path = finder.findPath(pos.x, pos.y, other.x, other.y, grid);
             if (path.length > 0) {
-                await utils.info(`成功找到出口坐标(${map.entries[1].x} ,${map.entries[1].y}), icon: ${map.entries[1].icon}`);
-                await bryan.walkTo(map.entries[1].x, map.entries[1].y, true);
+                await utils.info(`成功找到出口坐标(${other.x} ,${other.y}), icon: ${other.icon}`);
+                await bryan.walkTo(other.x, other.y, true);
                 await utils.wait(3000);
                 await bryan.waitBattleFinish();
                 return Promise.resolve(map);
@@ -78,10 +86,18 @@ let thisobj = async (entry = {}, lookForNpc = [], save = true, autoOpenBox = tru
     }
 
     // 刷新玩家周围地图迷宫
-    let refreshPlayerMap = async (size = 24, downloaded = [], threadhold = 0) => {
+    let refreshPlayerMap = async (size = 24, downloaded = [], walked = [], threadhold = 24) => {
         let pos = cga.getMapXY();
         let mapIndex = cga.GetMapIndex();
         let collision = cga.GetMapCollisionTable(true);
+
+        let conn = connect(walked, pos);
+        // print(conn);
+        let available = (x, y) => {
+            return conn && conn[y] && conn[y][x] ? conn[y][x] == flag_reachable : false;
+        };
+        // return;
+
         let download = async (x_start, y_start, x_bottom, y_bottom) => {
             x_start = x_start > 0 ? x_start : 0;
             y_start = y_start > 0 ? y_start : 0;
@@ -90,15 +106,17 @@ let thisobj = async (entry = {}, lookForNpc = [], save = true, autoOpenBox = tru
             if (x_start > x_bottom || y_start > y_bottom) {
                 return Promise.reject('目标坐标区域参数错误');
             }
-            let count = 0;
-            for(let y = y_start; y < y_bottom; y++) {
-                if(downloaded[y] == undefined) { downloaded[y] = []; } 
-                for(let x = x_start; x < x_bottom; x++) {
-                    if(downloaded[y][x] == undefined) { downloaded[y][x] = 1; count++; }
+            let count = 0, valid = false;
+            for (let y = y_start; y < y_bottom; y++) {
+                if (downloaded[y] == undefined) { downloaded[y] = []; }
+                for (let x = x_start; x < x_bottom; x++) {
+                    valid |= available(x, y);
+                    if (downloaded[y][x] == undefined) { downloaded[y][x] = 1; count++; }
                 }
             }
+            // console.log(`${count} -> ${valid} -> ${count > threadhold && valid}`);
             // console.log(`(${x_start},${y_start}) - ${x_bottom},${y_bottom}) -> ${count}`);
-            if(count > threadhold) {
+            if (count > threadhold && valid) {
                 await bryan.waitBattleFinish(0);
                 await cga.RequestDownloadMap(x_start, y_start, x_bottom, y_bottom);
                 return new Promise(async (resolve, reject) => {
@@ -107,54 +125,57 @@ let thisobj = async (entry = {}, lookForNpc = [], save = true, autoOpenBox = tru
                         cga.AsyncWaitDownloadMap(async (err, msg) => {
                             // console.log('flag2..');
                             if (err) {
-                                utils.error(err);
                                 return reject(err);
                             }
                             if (mapIndex.index3 != cga.GetMapIndex().index3) {
                                 // 地图刷新
-                                // await utils.info('地图刷新, 等待下载完成请求取消:' + mapInfo.indexes.index3 + ":" + cga.GetMapIndex().index3);
-                                await utils.error('地图刷新, 等待下载完成请求取消');
                                 return reject('地图刷新, 等待下载完成请求取消');
                             }
                             if (times > 0 && (msg.xtop != x_bottom || msg.ytop != y_bottom || msg.xbase != x_start || msg.ybase != y_start)) {
                                 // await utils.info('地图刷新, 回调失败');
                                 return await loop(1000, times - 1);
                             } else {
-                                await utils.info('地图刷新, 回调成功');
-                                return resolve(true);
+                                return resolve('地图刷新, 回调成功');
                             }
                         }, timeout);
                     }
                     return await loop();
                 });
             }
-            return Promise.resolve(false);
+            return Promise.resolve('地图已刷新, 无需重复下载');
         }
 
         // console.log('start...download...');
         // await bryan.waitBattleFinish();
-        // let top_left = download(pos.x - 24, pos.y - 24, pos.x, pos.y);
-        // let top_right = download(pos.x, pos.y - 24, pos.x + 24, pos.y);
-        // let bottom_right = download(pos.x, pos.y, pos.x + 24, pos.y + 24);
-        // let bottom_left = download(pos.x - 24, pos.y, pos.x, pos.y + 24);
-        // return await Promise.all([top_left, top_right, bottom_right, bottom_left]); 
+        let top_left = download(pos.x - size, pos.y - size, pos.x, pos.y);
+        let top_right = download(pos.x, pos.y - size, pos.x + size, pos.y);
+        let bottom_right = download(pos.x, pos.y, pos.x + size, pos.y + size);
+        let bottom_left = download(pos.x - size, pos.y, pos.x, pos.y + size);
+        return await Promise.all([top_left, top_right, bottom_right, bottom_left]).then(async (msg) => {
+            await utils.debug(msg);
+        }).catch(async (error) => {
+            await utils.info(error);
+            await utils.info('下载地图错误，等待30秒继续');
+            await utils.wait(30000);
+            await utils.debug('下载地图错误，等待30秒完成');
+        });
 
         // return download(pos.x - 24, pos.y - 24, pos.x, pos.y)
         //     .then(() => download(pos.x, pos.y - 24, pos.x + 24, pos.y))
         //     .then(() => download(pos.x, pos.y, pos.x + 24, pos.y + 24))
         //     .then(() => download(pos.x - 24, pos.y, pos.x, pos.y + 24));
 
-        let top_left, top_right, bottom_right, bottom_left;
-        try {
-            top_left = await download(pos.x - size, pos.y - size, pos.x, pos.y); 
-            top_right = await download(pos.x, pos.y - size, pos.x + size, pos.y);
-            bottom_right = await download(pos.x, pos.y, pos.x + size, pos.y + size);
-            bottom_left = await download(pos.x - size, pos.y, pos.x, pos.y + size);
-        } catch (error) {
-            utils.error(`地图下载失败: ${top_left}|${top_right}|${bottom_right}|${bottom_left}`);
-        }
+        // let top_left, top_right, bottom_right, bottom_left;
+        // try {
+        //     top_left = await download(pos.x - size, pos.y - size, pos.x, pos.y);
+        //     top_right = await download(pos.x, pos.y - size, pos.x + size, pos.y);
+        //     bottom_right = await download(pos.x, pos.y, pos.x + size, pos.y + size);
+        //     bottom_left = await download(pos.x - size, pos.y, pos.x, pos.y + size);
+        // } catch (error) {
+        //     utils.error(`地图下载失败: ${top_left}|${top_right}|${bottom_right}|${bottom_left}`);
+        // }
 
-        return Promise.resolve();
+        // return Promise.resolve();
 
     };
 
@@ -170,6 +191,79 @@ let thisobj = async (entry = {}, lookForNpc = [], save = true, autoOpenBox = tru
         return units;
     }
 
+    // 连通扩散矩阵
+    let connect = (walked = [], pos = {}) => {
+        let conn = [];
+
+        if (!walked || walked.length < 1 || !pos) {
+            return conn;
+        }
+
+        let height = walked.length;
+        let width = walked[0].length;
+
+        let mask_reacheable = (walked = [], conn = [], cur = {}) => {
+
+            // 超出范围返回
+            if (cur.x < 0 || cur.x > width - 1 || cur.y < 0 || cur.y > height - 1) {
+                return conn;
+            }
+
+            // 初始化连通矩阵
+            if (conn[cur.y] == undefined) { conn[cur.y] = []; }
+            if (conn[cur.y][cur.x] == undefined) { conn[cur.y][cur.x] = walked[cur.y][cur.x] != 1 ? flag_walkable : flag_blocked; }
+
+            // console.log(`(${cur.x},${cur.y}) - ${extended[cur.y][cur.x]}`);
+
+            // 已标记 或者 不可达 返回
+            if (walked[cur.y][cur.x] == flag_blocked || conn[cur.y][cur.x] >= flag_reachable) {
+                return conn;
+            }
+
+            // 标记可以到达\或者已经被搜索
+            conn[cur.y][cur.x] = Math.max(walked[cur.y][cur.x], flag_reachable);
+
+            // 上
+            mask_reacheable(walked, conn, { x: cur.x, y: cur.y - 1 });
+            // 右
+            mask_reacheable(walked, conn, { x: cur.x + 1, y: cur.y });
+            // 下
+            mask_reacheable(walked, conn, { x: cur.x, y: cur.y + 1 });
+            // 左
+            mask_reacheable(walked, conn, { x: cur.x - 1, y: cur.y });
+
+            return conn;
+        };
+        // print(walked);
+        // 开始标记
+        mask_reacheable(walked, conn, pos);
+
+        for (let y = 0; y < height; y++) {
+            if (conn[y] == undefined) { conn[y] = []; }
+            for (let x = 0; x < width; x++) {
+                if (conn[y][x] == undefined) { conn[y][x] = 1 };
+            }
+        }
+
+        // print(extended);
+
+        return conn;
+    };
+    let finished = async (walked = [], pos = {}) => {
+        let conn = connect(walked, pos);
+        // print(conn);
+        let height = walked.length;
+        let width = walked[0].length;
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                if (conn[y] && conn[y][x] == flag_reachable) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
     /**
      * 走一层迷宫
      */
@@ -178,7 +272,7 @@ let thisobj = async (entry = {}, lookForNpc = [], save = true, autoOpenBox = tru
         let height = walked.length;
         let width = walked[0].length
 
-        let range = Math.floor(size / 2);
+        let range = size; //Math.floor(size / 2);
         let startX = Math.max(0, pos.x - range);
         let stopX = Math.min(width, pos.x + range);
         let startY = Math.max(0, pos.y - range);
@@ -192,11 +286,33 @@ let thisobj = async (entry = {}, lookForNpc = [], save = true, autoOpenBox = tru
             }
         }
     };
+    let pre_search = (walked = [], pos = {}, size = 10) => {
+
+        let conn = connect(walked, pos);
+        // print(conn);
+        let height = walked.length;
+        let width = walked[0].length
+
+        let range = size; //Math.floor(size / 2);
+        let startX = Math.max(0, pos.x - range);
+        let stopX = Math.min(width, pos.x + range);
+        let startY = Math.max(0, pos.y - range);
+        let stopY = Math.min(height, pos.y + range);
+
+        for (let y = startY; y < stopY; y++) {
+            for (let x = startX; x < stopX; x++) {
+                if (conn[y][x] == flag_reachable) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    };
     // 计算连通权重
     let collect = (connected = [], pos = {}, size = 10) => {
         let result = 0;
         if (!pos || !pos.x || !pos.y || connected == undefined
-            || connected[pos.y] == undefined || connected[pos.y][pos.x] == undefined || connected[pos.y][pos.x] != flag_reachable) {
+            || connected[pos.y] == undefined || connected[pos.y][pos.x] == undefined || connected[pos.y][pos.x] < flag_reachable) {
             return result;
         }
         let height = connected.length;
@@ -211,10 +327,12 @@ let thisobj = async (entry = {}, lookForNpc = [], save = true, autoOpenBox = tru
             for (let x = startX; x < stopX; x++) {
                 if (connected[y][x] == flag_reachable) {
                     result += 1;
+                } else if (connected[y][x] == flag_searched) {
+                    result += 0.5;
                 }
             }
         }
-        return result;
+        return Math.floor(Math.abs(result));
     };
     // 4方向连通扩散矩阵
     let connect4 = (walked = [], pos = {}, size = 10, extend = 5) => {
@@ -287,7 +405,7 @@ let thisobj = async (entry = {}, lookForNpc = [], save = true, autoOpenBox = tru
         for (let y = 0; y < height; y++) {
             extended[y] = [];
             for (let x = 0; x < width; x++) {
-                extended[y][x] = (t1[y] && t1[y][x]) || (t2[y] && t2[y][x]) || (t3[y] && t3[y][x]) || (t4[y] && t4[y][x]) || 1;
+                extended[y][x] = (t1[y] && t1[y][x]) || (t2[y] && t2[y][x]) || (t3[y] && t3[y][x]) || (t4[y] && t4[y][x]) || 0;
             }
         }
 
@@ -295,7 +413,7 @@ let thisobj = async (entry = {}, lookForNpc = [], save = true, autoOpenBox = tru
 
         return extended;
     };
-    // 计算九宫格区域计算
+    // 九宫格区域计算
     let optimize = (connected = [], pos = {}, size = 10) => {
         let optimized = [];
         let range = size + Math.floor(size / 2);
@@ -324,7 +442,7 @@ let thisobj = async (entry = {}, lookForNpc = [], save = true, autoOpenBox = tru
             if (optimized[y] == undefined) { optimized[y] = []; }
             for (let x = 0; x < width; x++) {
                 if (optimized[y][x] == undefined) {
-                    optimized[y][x] = connected[y][x];
+                    optimized[y][x] = 0;//connected[y][x];
                 }
             }
         }
@@ -342,9 +460,13 @@ let thisobj = async (entry = {}, lookForNpc = [], save = true, autoOpenBox = tru
         let height = options.length;
         let width = options[0].length;
 
-        let half = Math.floor(size / 2);
-        let full = size + half;
+        let threadhold = size; // Math.floor(size / 2);
 
+        // let half = Math.floor(size / 2);
+        // let full = size + half;
+
+        let half = Math.floor(size / 2);
+        let full = half * 2;
 
         let cal = (offsetX_start, offsetX_end, offsetY_start, offsetY_end) => {
             let startX = Math.max(0, pos.x + offsetX_start);
@@ -359,11 +481,15 @@ let thisobj = async (entry = {}, lookForNpc = [], save = true, autoOpenBox = tru
             let max = null;
             for (let y = startY; y < stopY; y++) {
                 for (let x = startX; x < stopX; x++) {
-                    // console.log(`(${x}, ${y})${optimized[y][x]}`);
-                    if (!max) {
-                        max = { x: x, y: y, value: options[y][x] };
-                    } else if (max.value < options[y][x]) {
-                        max = { x: x, y: y, value: options[y][x] };
+                    if (nav[y][x] != flag_walkable) { continue; }
+                    let dx = Math.abs(x - pos.x), dy = Math.abs(y - pos.y);
+                    // console.log(`${dx},${dy}, ${Math.sqrt(Math.pow(dx, 2) + Math.pow(dy, 2))}`);
+                    // let distance = Math.floor(threadhold * Math.sqrt(Math.pow(dx, 2) + Math.pow(dy, 2)));
+                    let optimize = options[y][x]; //Math.max(options[y][x] > 0 ? 1 : 0, options[y][x] - distance);
+
+                    if (!max || max.value < optimize) {
+                        // console.log(`(${x}, ${y})${optimize} - ${JSON.stringify(max)}`);
+                        max = { x: x, y: y, value: optimize };
                     }
                 }
             }
@@ -380,14 +506,14 @@ let thisobj = async (entry = {}, lookForNpc = [], save = true, autoOpenBox = tru
         let t9 = cal(half, full, half, full);       // 下 -> 右
 
         // if(pos.x == 30 && pos.y == 12) {
-        //     console.log(t1);
-        //     console.log(t2);
-        //     console.log(t3);
-        //     console.log(t4);
-        //     console.log(t6);
-        //     console.log(t7);
-        //     console.log(t8);
-        //     console.log(t9);
+        // console.log(t1);
+        // console.log(t2);
+        // console.log(t3);
+        // console.log(t4);
+        // console.log(t6);
+        // console.log(t7);
+        // console.log(t8);
+        // console.log(t9);
         // }
 
         // 顺时针取值，如果取不到坐标走兜底逻辑
@@ -405,9 +531,10 @@ let thisobj = async (entry = {}, lookForNpc = [], save = true, autoOpenBox = tru
         }
         return t;
     };
-    let print = (data, mark) => {
+    let print = (data, from, to) => {
         let arr = JSON.parse(JSON.stringify(data));
-        if (mark) { arr[mark.y][mark.x] = '*'; }
+        if (from) { arr[from.y][from.x] = '*'; }
+        if (to) { arr[to.y][to.x] = '@'; }
         let str = '';
         for (let col of arr) {
             if (!col) { continue; }
@@ -420,26 +547,16 @@ let thisobj = async (entry = {}, lookForNpc = [], save = true, autoOpenBox = tru
     }
 
     // 自动探索迷宫一层
-    let stack = [], walked = [], downloaded = [], stop = false;
+    let stack = [], walked = [], nav = [], downloaded = [], stop = false;
     let flag_walkable = 0, flag_blocked = 1, flag_reachable = 2, flag_searched = 3;
-    let autoScanAndSearch = async (walked, scan_size = 24, search_size = 24) => {
+    let autoScanAndSearch = async (walked, scan_size = 20, search_size = 10) => {
         if (stop) {
             return Promise.resolve(map);
         }
         // 下载地图, 等待地图打开
         let mapXY = await cga.getMapXY();
         let x = parseInt(mapXY.x), y = parseInt(mapXY.y);
-        
 
-        // console.log('开始下载地图');
-        // if (!lookForNpc || lookForNpc.length < 1) {
-            await bryan.waitBattleFinish();
-            await refreshPlayerMap(scan_size, downloaded);
-            // print(downloaded, {x: x, y: y});
-            // return;
-        // }
-
-        // console.log('开始下载地图完成');
         // 获取最新的地图数据
         let collitions = await cga.buildMapCollisionMatrix(false);
         let matrix = collitions.matrix, size_x = collitions.x_size, size_y = collitions.y_size;
@@ -449,14 +566,26 @@ let thisobj = async (entry = {}, lookForNpc = [], save = true, autoOpenBox = tru
 
         // 1.更新可探索范围区域
         for (let y = 0; y < size_y; y++) {
-            if (walked[y] == undefined) { walked[y] = []; }
+            if (walked[y] == undefined) { walked[y] = []; nav[y] = []; }
             for (let x = 0; x < size_x; x++) {
-                if (walked[y][x] == undefined || walked[y][x] <= flag_blocked) { walked[y][x] = matrix[y][x]; }
+                if (walked[y][x] == undefined || walked[y][x] <= flag_blocked) { walked[y][x] = matrix[y][x]; nav[y][x] = matrix[y][x]; }
             }
         }
 
+
         // 2.更新已探索范围区域
         search(walked, { x: x, y: y }, search_size);
+        search(nav, { x: x, y: y }, Math.floor(search_size / 2));
+
+
+        // console.log('开始下载地图');
+        if (!lookForNpc || lookForNpc.length < 1) {
+            await refreshPlayerMap(scan_size, downloaded, walked);
+            await bryan.waitBattleFinish(1000);
+        }
+        // console.log('开始下载地图完成');
+
+
 
 
         // 3.1 扫描范围是否到达出口、搜索范围是否找到指定内容，可以提前结束
@@ -480,20 +609,7 @@ let thisobj = async (entry = {}, lookForNpc = [], save = true, autoOpenBox = tru
             if (!map.units.find(n => n.unit_name == npc.unit_name && n.unit_id == npc.unit_id)) { map.units.push(npc); }
         }
 
-        // 3.3 自动开宝箱
-        if (autoOpenBox) {
-            let boxUnits = await getBoxUnits();
-            for (let box of boxUnits) {
-                let around = await bryan.getAroundMovable(box.xpos, box.ypos);
-                if (around && around.length > 0 && await bryan.walkTo(around[0].x, around[0].y)) {
-                    await bryan.useItem('铜钥匙', box.xpos, box.ypos);
-                }
-            }
-            await bryan.walkTo(x, y);
-            await utils.wait(1000);
-        }
-
-        // 3.4 注意: 是否结束需要保证都是可达出口和NPC都是路径可达，走到NPC前面即可返回
+        // 3.3 注意: 是否结束需要保证都是可达出口和NPC都是路径可达，走到NPC前面即可返回
         let target = map.units.find(unit => lookForNpc.find(name => name == unit.unit_name));
         if (target) {
             let grid = new PF.Grid(matrix);
@@ -505,28 +621,59 @@ let thisobj = async (entry = {}, lookForNpc = [], save = true, autoOpenBox = tru
                 }
                 let arounds = utils.findAroundMovablePos(target.xpos, target.ypos, matrix);
                 await bryan.walkTo(arounds[0].x, arounds[0].y);
-                await utils.wait(3000);
                 return Promise.resolve(map);
+            }
+        }
+
+        // 3.4 自动开宝箱
+        if (autoOpenBox) {
+            let boxUnits = await getBoxUnits();
+            for (let box of boxUnits) {
+                let around = await bryan.getAroundMovable(box.xpos, box.ypos);
+                if (around && around.length > 0 && await bryan.walkTo(around[0].x, around[0].y)) {
+                    await bryan.useItem('铜钥匙', box.xpos, box.ypos);
+                }
             }
         }
 
         // 3.5 注意: 找到迷宫出口，如果不需要找NPC可以直接返回
         if (map.entries.length > 1 && map.path.length == 0) {
             let grid = new PF.Grid(matrix);
-            let path = finder.findPath(map.entries[0].x, map.entries[0].y, map.entries[1].x, map.entries[1].y, grid);
+            let other = map.entries.find(n => n.x != start.x || n.y != start.y);
+            let path = finder.findPath(start.x, start.y, other.x, other.y, grid);
             // console.log(path);
             if (path.length > 0) {
                 map.path = path;
-                await utils.info(`成功找到出口坐标(${map.entries[1].x} ,${map.entries[1].y}), icon: ${map.entries[1].icon}`);
+                let other = map.entries.find(n => n.x != start.x || n.y != start.y);
+                await utils.info(`自动走迷宫：出口坐标(${other.x} ,${other.y}), icon: ${other.icon}`);
                 if (!lookForNpc || lookForNpc.length < 1) {
                     if (save) {
                         await utils.writeMap(filename, map);
                     }
-                    await bryan.walkTo(map.entries[1].x, map.entries[1].y, true);
+                    await bryan.walkTo(other.x, other.y, true);
                     await bryan.waitBattleFinish();
                     await utils.wait(3000);
                     return Promise.resolve(map);
                 }
+            }
+        }
+
+        // 3.6 检测地图全探测
+        if (await finished(walked, { x: x, y: y })) {
+            // console.log('finished');
+            let grid = new PF.Grid(matrix);
+            let other = map.entries.find(n => n.x != start.x || n.y != start.y);
+            map.path = finder.findPath(start.x, start.y, other.x, other.y, grid);
+            if (map.path.length > 0) {
+                if (save) {
+                    await utils.writeMap(filename, map);
+                }
+                let other = map.entries.find(n => n.x != start.x || n.y != start.y);
+                await bryan.walkTo(other.x, other.y, true);
+                return Promise.resolve(map);
+            } else {
+                console.log(`已经完整扫描地图，可能未发现出口或者指定目标`);
+                return Promise.resolve(map);
             }
         }
 
@@ -537,12 +684,24 @@ let thisobj = async (entry = {}, lookForNpc = [], save = true, autoOpenBox = tru
             let parent = stack.pop();
             // print(walked);
             // 3. 获得九宫格扩散地图
-            search(walked, { x: x, y: y }, search_size);
-            let conn = connect4(walked, parent, search_size, 0);
+            let conn = connect4(walked, parent, search_size, Math.floor(search_size / 2));
+            // print(conn, parent); // return;
             // 4. 通过九宫价值获得最佳坐标
             let options = optimize(conn, parent, search_size);
-            // print(options);
+            // print(options, parent); return;
             next = choose(options, parent, search_size);
+
+            // 5. 凌波微步, 跳过无效的地点
+            if (next != null && !pre_search(walked, next, search_size)) {
+                // console.log('凌波微步');
+                search(nav, next, Math.floor(search_size / 2));
+                stack.push(parent);
+                next = null;
+            }
+            // return;
+
+            // print(walked, parent, next); // return;
+            // print(options, parent, next); return;
             if (next != null) { stack.push(parent); }// print(walked, next); }
         }
 
@@ -568,9 +727,8 @@ let thisobj = async (entry = {}, lookForNpc = [], save = true, autoOpenBox = tru
                 if (save) {
                     await utils.writeMap(filename, map);
                 }
-                await bryan.walkTo(map.entries[1].x, map.entries[1].y, true);
-                await bryan.waitBattleFinish();
-                await utils.wait(3000);
+                let other = map.entries.find(n => n.x != start.x || n.y != start.y);
+                await bryan.walkTo(other.x, other.y, true);
                 return Promise.resolve(map);
             } else {
                 console.log(`已经完整扫描地图，可能未发现出口或者指定目标`);
