@@ -85,12 +85,13 @@ let thisobj = async (lookForNpc = [], lookForBox = [], cache = true) => {
     }
 
     // 刷新玩家周围地图迷宫
-    let refreshPlayerMap = async (size = 24, downloaded = [], walked = [], threadhold = 24) => {
+    let refreshPlayerMap = async (size = 20, downloaded = [], walked = [], threadhold = 48) => {
         let pos = cga.getMapXY();
         let mapIndex = cga.GetMapIndex();
         let collision = cga.GetMapCollisionTable(true);
 
         let conn = connect(walked, pos);
+        let refreshed = false;
         // print(conn);
         let available = (x, y) => {
             return conn && conn[y] && conn[y][x] ? conn[y][x] == flag_reachable : false;
@@ -116,6 +117,7 @@ let thisobj = async (lookForNpc = [], lookForBox = [], cache = true) => {
             // console.log(`${count} -> ${valid} -> ${count > threadhold && valid}`);
             // console.log(`(${x_start},${y_start}) - ${x_bottom},${y_bottom}) -> ${count}`);
             if (count > threadhold && valid) {
+                refreshed = true;
                 await bryan.waitBattleFinish(0);
                 await cga.RequestDownloadMap(x_start, y_start, x_bottom, y_bottom);
                 return new Promise(async (resolve, reject) => {
@@ -151,12 +153,15 @@ let thisobj = async (lookForNpc = [], lookForBox = [], cache = true) => {
         let bottom_right = download(pos.x, pos.y, pos.x + size, pos.y + size);
         let bottom_left = download(pos.x - size, pos.y, pos.x, pos.y + size);
         return await Promise.all([top_left, top_right, bottom_right, bottom_left]).then(async (msg) => {
+            if(refreshed) {
+                await bryan.waitBattleFinish(5000);
+            }
             await utils.debug(msg);
         }).catch(async (error) => {
             await utils.info(error);
             await utils.info('下载地图错误，等待30秒继续');
             await utils.wait(30000);
-            await utils.debug('下载地图错误，等待30秒完成');
+            // await utils.debug('下载地图错误，等待30秒完成');
         });
 
         // return download(pos.x - 24, pos.y - 24, pos.x, pos.y)
@@ -549,7 +554,7 @@ let thisobj = async (lookForNpc = [], lookForBox = [], cache = true) => {
     // 自动探索迷宫一层
     let stack = [], walked = [], nav = [], downloaded = [], stop = false;
     let flag_walkable = 0, flag_blocked = 1, flag_reachable = 2, flag_searched = 3;
-    let autoScanAndSearch = async (walked, scan_size = 20, search_size = 10) => {
+    let autoScanAndSearch = async (walked, scan_size = 24, search_size = 10) => {
         if (stop) {
             return Promise.resolve(map);
         }
@@ -581,30 +586,28 @@ let thisobj = async (lookForNpc = [], lookForBox = [], cache = true) => {
         // console.log('开始下载地图');
         // 2.2 下载地图
         if (!lookForNpc || lookForNpc.length < 1) {
-            await refreshPlayerMap(Math.floor(scan_size / 1.2), downloaded, walked);
-            await bryan.waitBattleFinish(1000);
-        } else {
-            await refreshPlayerMap(scan_size, downloaded, walked);
-            await bryan.waitBattleFinish(1000);
-        }
-        // console.log('开始下载地图完成');
+            await refreshPlayerMap(Math.floor(scan_size), downloaded, walked);
 
-        
-        // 2.3 更新最新的地图数据
-        collitions = await cga.buildMapCollisionMatrix(false);
-        matrix = collitions.matrix, size_x = collitions.x_size, size_y = collitions.y_size;
-        // console.log(`地图大小(${size_x}, ${size_y})`);
+            // 2.3 更新最新的地图数据
+            collitions = await cga.buildMapCollisionMatrix(false);
+            matrix = collitions.matrix, size_x = collitions.x_size, size_y = collitions.y_size;
+            // console.log(`地图大小(${size_x}, ${size_y})`);
 
-
-
-        // 2.4 更新可探索范围区域
-        for (let y = 0; y < size_y; y++) {
-            if (walked[y] == undefined) { walked[y] = []; nav[y] = []; }
-            for (let x = 0; x < size_x; x++) {
-                if (walked[y][x] == undefined || walked[y][x] <= flag_blocked) { walked[y][x] = matrix[y][x]; nav[y][x] = matrix[y][x]; }
+            // 2.4 更新可探索范围区域
+            for (let y = 0; y < size_y; y++) {
+                if (walked[y] == undefined) { walked[y] = []; nav[y] = []; }
+                for (let x = 0; x < size_x; x++) {
+                    if (walked[y][x] == undefined || walked[y][x] <= flag_blocked) { walked[y][x] = matrix[y][x]; nav[y][x] = matrix[y][x]; }
+                }
             }
         }
-
+        // } else {
+        //     await refreshPlayerMap(Math.floor(scan_size / 1.5), downloaded, walked);
+        //     await bryan.waitBattleFinish(1000);
+        // }
+        // console.log('开始下载地图完成');
+        // await refreshPlayerMap(Math.floor(scan_size / 1.5), downloaded, walked);
+        // await bryan.waitBattleFinish(1000);
 
 
         // 3.1 扫描范围是否到达出口、搜索范围是否找到指定内容，可以提前结束
@@ -637,8 +640,9 @@ let thisobj = async (lookForNpc = [], lookForBox = [], cache = true) => {
                 await utils.info(`成功找到NPC坐标(${target.xpos} ,${target.ypos})`);
                 if (cache) {
                     await utils.writeMap(filename, map);
+                    await utils.wait(3000);
                 }
-                let arounds = utils.findAroundMovablePos(target.xpos, target.ypos, matrix);
+                let arounds = await bryan.getAroundMovable(target.xpos, target.ypos);
                 await bryan.walkTo(arounds[0].x, arounds[0].y);
                 return Promise.resolve(map);
             }
@@ -693,17 +697,19 @@ let thisobj = async (lookForNpc = [], lookForBox = [], cache = true) => {
             // console.log('finished');
             let grid = new PF.Grid(matrix);
             let other = map.entries.find(n => n.x != start.x || n.y != start.y);
-            map.path = finder.findPath(start.x, start.y, other.x, other.y, grid);
-            if (map.path.length > 0) {
-                if (cache) {
-                    await utils.writeMap(filename, map);
+            if (other) {
+                map.path = finder.findPath(start.x, start.y, other.x, other.y, grid);
+                if (map.path.length > 0) {
+                    if (cache) {
+                        await utils.writeMap(filename, map);
+                    }
+                    let other = map.entries.find(n => n.x != start.x || n.y != start.y);
+                    await bryan.walkTo(other.x, other.y, true);
+                    return Promise.resolve(map);
+                } else {
+                    console.log(`已经完整扫描地图，可能未发现出口或者指定目标`);
+                    return Promise.resolve(map);
                 }
-                let other = map.entries.find(n => n.x != start.x || n.y != start.y);
-                await bryan.walkTo(other.x, other.y, true);
-                return Promise.resolve(map);
-            } else {
-                console.log(`已经完整扫描地图，可能未发现出口或者指定目标`);
-                return Promise.resolve(map);
             }
         }
 

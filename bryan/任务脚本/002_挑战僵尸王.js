@@ -62,9 +62,12 @@ let 挑战僵尸王 = async (是否需要初始化 = true) => require('../api')(
     // 搜索迷宫，地图寻找护士
     while (await 获取地图名称().startsWith('奇怪的洞窟') && !(await 获取指定物品('实验药'))) {
         await 自动走迷宫插件(['无照护士米内鲁帕']);
-        await 等待(3000);
+        await 等待(1000);
         let 无照护士米内鲁帕 = await 获取周围NPC坐标('无照护士米内鲁帕');
         while (无照护士米内鲁帕 && !(await 获取指定物品('实验药'))) {
+            let 坐标 = await 获取周围可移动坐标(无照护士米内鲁帕.xpos, 无照护士米内鲁帕.ypos);
+            await 自动寻路(坐标[0].x, 坐标[0].y);
+            await 等待(1000);
             await 对话NPC(无照护士米内鲁帕.xpos, 无照护士米内鲁帕.ypos, ['确定']);
             await 等待(1000);
         }
@@ -73,6 +76,7 @@ let 挑战僵尸王 = async (是否需要初始化 = true) => require('../api')(
     // 继续完成走迷宫
     while (await 获取地图名称().startsWith('奇怪的洞窟')) {
         await 自动走迷宫插件();
+        await 等待(1000);
     }
 
     while (await 获取地图名称() == '阿鲁巴斯实验所' && await 获取指定物品('实验药')) {

@@ -40,7 +40,7 @@ let 循环刷图 = async () => {
 
     await 加载框架();
     await 设置高速移动();
-    // await 设置高速切图();
+    await 设置高速切图();
     await 设置高速采集();
     await 设置自动补给();
     await 设置说话防掉线();
@@ -54,10 +54,16 @@ let 循环刷图 = async () => {
 
     while (1) {
 
+        
+
         let 地图名称 = await 获取地图名称();
         while ((地图名称 == '芙蕾雅' || 地图名称 == '亚留特村') && await 检查当前状态(保护状态)) {
             await 回村补血();
             await 等待(3000);
+        }
+
+        if(!地图名称.startsWith('奇怪的洞窟') && !地图名称.startsWith('阿鲁巴斯实验所') ) {
+            await 丢弃物品(['实验药']);
         }
 
         await 挑战僵尸王(false).catch(async (error) => {

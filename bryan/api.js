@@ -508,6 +508,7 @@ module.exports = async (cga) => {
             if (mapInfo.x == x && mapInfo.y == y && !warp) {
                 return true;
             }
+            // warp = await cga.getMapObjects().find(n => (n.cell == 3 || n.cell == 10) && n.x == x && n.y == y) && warp;
             utils.debug(`自动寻路：当前位置(${mapInfo.x}, ${mapInfo.y}) -> 寻路目标(${x}, ${y})`);
 
             // 寻路并移动
@@ -527,7 +528,7 @@ module.exports = async (cga) => {
 
                 // 替换目的地
                 let target = warp && swap ? { x: swap.x, y: swap.y } : { x: x, y: y };
-                let matrix = warp && swap ? cga.buildMapCollisionMatrix(true).matrix : cga.buildMapCollisionMatrix(false).matrix;
+                let matrix = cga.buildMapCollisionMatrix(true).matrix;
                 let walkList = utils.findPath(mapInfo.x, mapInfo.y, target.x, target.y, matrix);
                 if (!walkList || walkList.length < 1) {
                     utils.error(`自动寻路：可能未开地图，导致无法到达(${x}, ${y})`);
@@ -539,7 +540,7 @@ module.exports = async (cga) => {
                     // await waitBattleFinish(50);
                     utils.debug(`移动(${x},${y})`)
                     return new Promise((resolve, reject) => {
-                        cga.AsyncWalkTo(x, y, null, null, null, (error, reason) => {
+                        cga.AsyncWalkTo(x, y, mapInfo.name, x, y, (error, reason) => {
                             if (error) {
                                 return reject({ error: error, reason: reason });
                             }
@@ -589,10 +590,10 @@ module.exports = async (cga) => {
                 let target = await cga.getMapObjects().find(n => (n.cell == 3 || n.cell == 10) && n.x == x && n.y == y);
                 while (target && await getMapName() == mapInfo.name && times < retry) {
                     times++;
+                    await waitBattleFinish(1000);
                     await cga.WalkTo(x, y);
                     await utils.wait(2000);
                     if (await getMapName() == mapInfo.name) {
-                        await waitBattleFinish(5000);
                         await cga.FixMapWarpStuck(1);
                         await utils.wait(1000);
                     }
@@ -777,7 +778,7 @@ module.exports = async (cga) => {
                         if (times++ % 1000 == 0) {
                             utils.debug(`高速遇敌：已经快速走动累计${times}次`);
                         }
-                    } while (cga.isInNormalState());
+                    } while (cga.isInNormalState() && current == await getMapName());
                     await waitBattleFinish();
                     let invalid = await checkProtectStatus(protect);
                     if (invalid || current != await getMapName()) {
@@ -1022,6 +1023,17 @@ module.exports = async (cga) => {
         };
         bryan.使用物品 = useItem;
         bryan._internal['useItem'] = useItem;
+
+        // 112. 丢弃物品
+        let dropItem = async (items = [], count = 0) => {
+            let speed = cga.GetMoveSpeed();
+            if (cga.isInNormalState() && speed && speed.x === 0 && speed.y === 0) {
+                cga.getInventoryItems().filter(i => items.find(n => i.name.indexOf(n) >= 0)).forEach(i => cga.DropItem(i.pos));
+            }
+            return true;
+        }
+        bryan.丢弃物品 = dropItem;
+        bryan._internal['useItem'] = dropItem;
 
         /**
          * 导出方法区

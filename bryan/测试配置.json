@@ -1,0 +1,107 @@
+{
+    "battle": {
+        "autobattle": true,
+        "beep": false,
+        "bossprot": false,
+        "delayfrom": 4000,
+        "delayto": 4500,
+        "highspeed": true,
+        "list": [
+            {
+                "condition": 5,
+                "condition2": 0,
+                "condition2rel": 0,
+                "condition2val": "",
+                "conditionrel": 2,
+                "conditionval": "50%",
+                "index": 0,
+                "petaction": 100,
+                "petskillname": "气功弹-Ⅱ",
+                "pettarget": 0,
+                "pettargetsel": 0,
+                "playeraction": 100,
+                "playerskilllevel": 0,
+                "playerskillname": "补血魔法",
+                "playertarget": 1,
+                "playertargetsel": 3
+            },
+            {
+                "condition": 10,
+                "condition2": 0,
+                "condition2rel": 0,
+                "condition2val": "",
+                "conditionrel": 1,
+                "conditionval": "3",
+                "index": 1,
+                "petaction": 100,
+                "petskillname": "气功弹-Ⅱ",
+                "pettarget": 0,
+                "pettargetsel": 0,
+                "playeraction": 1,
+                "playertarget": 0,
+                "playertargetsel": 0
+            },
+            {
+                "condition": 0,
+                "condition2": 0,
+                "condition2rel": 0,
+                "condition2val": "",
+                "conditionrel": 0,
+                "conditionval": "",
+                "index": 2,
+                "petaction": 100,
+                "petskillname": "攻击",
+                "pettarget": 0,
+                "pettargetsel": 0,
+                "playeraction": 1,
+                "playertarget": 0,
+                "playertargetsel": 0
+            }
+        ],
+        "lockcd": false,
+        "lv1prot": false,
+        "pet2action": true,
+        "r1nodelay": true,
+        "waitafterbattle": false
+    },
+    "chat": {
+    },
+    "itemdroplist": [
+        "卡片？",
+        "魔石",
+        "设计图？",
+        "贪欲的罪书",
+        "腐尸的卡片",
+        "僵尸的卡片",
+        "鸟人的卡片",
+        "地狱看门犬的卡片",
+        "冰冷树精的卡片",
+        "古钱？"
+    ],
+    "itemidmap": {
+    },
+    "itemtweaklist": [
+        "地的水晶碎片|999",
+        "水的水晶碎片|999",
+        "火的水晶碎片|999",
+        "风的水晶碎片|999",
+        "阿尔卡迪亚古钱|999"
+    ],
+    "player": {
+        "antiafkkick": true,
+        "autosupply": true,
+        "gametextui": false,
+        "movespd": 120,
+        "noswitchanim": false,
+        "petfood": false,
+        "petfoodat": "0",
+        "petmed": false,
+        "petmedat": "0",
+        "usefood": false,
+        "usefoodat": "0",
+        "usemed": false,
+        "usemedat": "0",
+        "workacc": 100,
+        "workdelay": 4800
+    }
+}
