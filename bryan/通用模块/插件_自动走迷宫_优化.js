@@ -53,7 +53,7 @@ let thisobj = async (lookForNpc = [], lookForBox = [], cache = true) => {
     cache = cache && !unrefresh;
     // console.log(map);
     // console.log(lookForNpc);
-    await bryan.setMoveSpeed(unrefresh ? 130 : 100);
+    
     utils.info(`自动走迷宫: ${unrefresh ? '地图已经开启，行走如风' : '开始探索地图'}，寻找 -> ${lookForNpc && lookForNpc.length > 0 ? lookForNpc : '出口'}`);
     if (unrefresh) {
         let matrix = await cga.buildMapCollisionMatrix(false).matrix;
@@ -64,6 +64,7 @@ let thisobj = async (lookForNpc = [], lookForBox = [], cache = true) => {
             let path = finder.findPath(pos.x, pos.y, target.xpos, target.ypos, grid);
             // console.log(path);
             if (path.length > 0) {
+                await bryan.setMoveSpeed(100);
                 await utils.info(`成功找到NPC坐标(${target.xpos} ,${target.ypos})`);
                 let arounds = utils.findAroundMovablePos(target.xpos, target.ypos, matrix);
                 await bryan.walkTo(arounds[0].x, arounds[0].y);
@@ -71,10 +72,12 @@ let thisobj = async (lookForNpc = [], lookForBox = [], cache = true) => {
                 return Promise.resolve(map);
             }
         }
+        
         if (map.entries && map.entries.length > 1) {
             let other = exist.entries.find(n => n.x != start.x || n.y != start.y);
             let path = finder.findPath(pos.x, pos.y, other.x, other.y, grid);
             if (path.length > 0) {
+                await bryan.setMoveSpeed(130);
                 await utils.info(`成功找到出口坐标(${other.x} ,${other.y}), icon: ${other.icon}`);
                 await bryan.walkTo(other.x, other.y, true);
                 await utils.wait(3000);
@@ -83,6 +86,7 @@ let thisobj = async (lookForNpc = [], lookForBox = [], cache = true) => {
             }
         }
     }
+    await bryan.setMoveSpeed(100);
 
     // 刷新玩家周围地图迷宫
     let refreshPlayerMap = async (size = 20, downloaded = [], walked = [], threadhold = 48) => {

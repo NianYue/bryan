@@ -34,7 +34,7 @@ let 挑战僵尸王 = async (是否需要初始化 = true) => require('../api')(
     let 黑名单坐标 = [{ x: 549, y: 43 }];
     let 获取奇怪的洞窟入口 = async () => {
         // 排除错误的迷宫入口坐标(549, 43)
-        return await 获取周围随机传送点(黑名单坐标);
+        return await 获取周围随机传送点(10, 黑名单坐标);
     }
     while (await 获取地图名称() == '芙蕾雅') {
         await 自动寻路(544, 35);
@@ -61,9 +61,8 @@ let 挑战僵尸王 = async (是否需要初始化 = true) => require('../api')(
 
     // 搜索迷宫，地图寻找护士
     while (await 获取地图名称().startsWith('奇怪的洞窟') && !(await 获取指定物品('实验药'))) {
-        await 自动走迷宫插件(['无照护士米内鲁帕']);
-        await 等待(1000);
-        let 无照护士米内鲁帕 = await 获取周围NPC坐标('无照护士米内鲁帕');
+        let result = await 自动走迷宫插件(['无照护士米内鲁帕']);
+        let 无照护士米内鲁帕 = result.units.find(n => n.unit_name == '无照护士米内鲁帕');
         while (无照护士米内鲁帕 && !(await 获取指定物品('实验药'))) {
             let 坐标 = await 获取周围可移动坐标(无照护士米内鲁帕.xpos, 无照护士米内鲁帕.ypos);
             await 自动寻路(坐标[0].x, 坐标[0].y);
@@ -71,6 +70,7 @@ let 挑战僵尸王 = async (是否需要初始化 = true) => require('../api')(
             await 对话NPC(无照护士米内鲁帕.xpos, 无照护士米内鲁帕.ypos, ['确定']);
             await 等待(1000);
         }
+        await 等待(1000);
     }
 
     // 继续完成走迷宫

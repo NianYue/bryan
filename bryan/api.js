@@ -7,7 +7,7 @@ module.exports = async (cga) => {
     return new Promise(async (resolve) => {
 
         // 框架加载
-        let version = '版本(v0.0.4)';
+        let version = '版本(v0.0.5)';
         cga = cga ? cga : global.cga;
         if (global.bryan) { return resolve(global.bryan); }
         utils.info(cga ? `加载简单指令系统|${version}` : `简单指令系统|${version} 尝试重新初始化...`);
@@ -454,9 +454,9 @@ module.exports = async (cga) => {
         bryan._internal['isPlayerStartedWorking'] = isPlayerStartedWorking;
 
         // 59. 获取周围随机传送点
-        let getRandomEntryPoint = (exclude = [], range = 10) => {
+        let getRandomEntryPoint = (distance = 10, exclude = []) => {
             let pos = cga.getMapInfo(), objects = cga.getMapObjects();
-            let min_x = pos.x - range, max_x = pos.x + range, min_y = pos.y - range, max_y = pos.y + range;
+            let min_x = pos.x - distance, max_x = pos.x + distance, min_y = pos.y - distance, max_y = pos.y + distance;
             let fn = (n) => {
                 return n.x >= min_x && n.y >= min_y && n.x <= max_x && n.y <= max_y && !exclude.find(p => p.x == n.x && p.y == n.y);
             }
@@ -496,6 +496,13 @@ module.exports = async (cga) => {
         };
         bryan.获取周围NPC坐标 = getArounNpcUnitPos;
         bryan._internal['getArounNpcUnitPos'] = getArounNpcUnitPos;
+
+        // 63. 获取地图序号
+        let getMapId = () => {
+            return cga.getMapInfo().indexes.index3;
+        };
+        bryan.获取地图序号 = getMapId;
+        bryan._internal['getMapId'] = getMapId;
 
         /* ------------------------------------------------------------------------ */
         /* --------------------------------- 操作 --------------------------------- */
@@ -588,12 +595,12 @@ module.exports = async (cga) => {
                 // console.log(cga.getMapObjects());
                 let times = 0, retry = 3;
                 let target = await cga.getMapObjects().find(n => (n.cell == 3 || n.cell == 10) && n.x == x && n.y == y);
-                while (target && await getMapName() == mapInfo.name && times < retry) {
+                while (target && await getMapId() == mapInfo.indexes.index3 && times < retry) {
                     times++;
                     await waitBattleFinish(1000);
                     await cga.WalkTo(x, y);
                     await utils.wait(2000);
-                    if (await getMapName() == mapInfo.name) {
+                    if (await getMapId() == mapInfo.indexes.index3) {
                         await cga.FixMapWarpStuck(1);
                         await utils.wait(1000);
                     }
@@ -737,7 +744,7 @@ module.exports = async (cga) => {
         bryan._internal['talkNpc'] = talkNpc;
 
         // 103. 高速遇敌
-        let fastMeetEnemy = async (config = {}, timeout = 300) => {
+        let fastMeetEnemy = async (config = {}, limit = Number.MAX_SAFE_INTEGER, timeout = 300) => {
             let protect = {
                 min_hp: 1,
                 min_mp: 0,
@@ -767,22 +774,22 @@ module.exports = async (cga) => {
                 utils.info(`高速遇敌：周围没有可移动的坐标，停止高速遇敌`);
                 return true;
             }
+            let times = 0;
             let loop = async (pos, dest, swap) => {
                 try {
-                    let times = 0;
                     do {
                         let target = swap ? dest : pos;
                         cga.ForceMoveTo(target.x, target.y, false);
                         swap = !swap;
                         await utils.wait(timeout);
-                        if (times++ % 1000 == 0) {
-                            utils.debug(`高速遇敌：已经快速走动累计${times}次`);
-                        }
                     } while (cga.isInNormalState() && current == await getMapName());
+                    if (++times % 100 == 0) {
+                        utils.debug(`高速遇敌：已经快速走动累计${times}次`);
+                    }
                     await waitBattleFinish();
                     let invalid = await checkProtectStatus(protect);
-                    if (invalid || current != await getMapName()) {
-                        utils.info(`高速遇敌：触发游戏状态保护，停止高速遇敌`);
+                    if (invalid || current != await getMapName() || times >= limit) {
+                        utils.info(`高速遇敌：触发游戏状态保护，停止高速遇敌(${times})`);
                         return true;
                     }
                 } catch (error) {
@@ -797,6 +804,7 @@ module.exports = async (cga) => {
             await cga.WalkTo(dest.x, dest.y);
             await utils.wait(1000);
 
+            utils.info(`高速遇敌：启动`);
             return await loop(pos, dest, swap);
         };
         bryan.高速遇敌 = fastMeetEnemy;
@@ -1033,7 +1041,7 @@ module.exports = async (cga) => {
             return true;
         }
         bryan.丢弃物品 = dropItem;
-        bryan._internal['useItem'] = dropItem;
+        bryan._internal['dropItem'] = dropItem;
 
         /**
          * 导出方法区
