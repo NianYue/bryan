@@ -604,7 +604,7 @@ module.exports = async (cga) => {
                 let times = 0, retry = 3;
                 let current = await getPlayerPos();
                 let target = await cga.getMapObjects().find(n => (n.cell == 3 || n.cell == 10 || n.cell == 9 || n.cell == 11 || n.cell == 13) && n.x == x && n.y == y);
-                while(current.x != x || current.y != y) {
+                while((current.x != x || current.y != y) && await getMapId() == mapInfo.indexes.index3) {
                     await waitBattleFinish(1000);
                     await cga.WalkTo(x, y);
                     await utils.wait(2000);

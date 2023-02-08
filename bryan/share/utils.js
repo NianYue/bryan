@@ -50,7 +50,7 @@ let findPath = (from_x, from_y, to_x, to_y, matrix, compress = true) => {
 };
 
 let movable = (x, y, matrix) => {
-    return x && y && matrix && matrix[x] && matrix[y][x] == 0;
+    return x && y && matrix && matrix[y] && matrix[y][x] == 0;
 };
 
 let findAroundMovablePos = (x, y, matrix) => {
@@ -79,7 +79,6 @@ let findAroundMovablePos = (x, y, matrix) => {
     if (movable(x + 1, y - 1, matrix)) {
         pos.push({ x: x + 1, y: y - 1 });
     }
-
     return pos;
 };
 
