@@ -455,13 +455,20 @@ module.exports = async (cga) => {
 
         // 59. 获取周围随机传送点
         let getRandomEntryPoint = (distance = 10, exclude = []) => {
-            let pos = cga.getMapInfo(), objects = cga.getMapObjects();
+            let pos = cga.getMapInfo(), objects = cga.getMapObjects(), units = cga.GetMapUnits();
             let min_x = pos.x - distance, max_x = pos.x + distance, min_y = pos.y - distance, max_y = pos.y + distance;
             let fn = (n) => {
                 return n.x >= min_x && n.y >= min_y && n.x <= max_x && n.y <= max_y && !exclude.find(p => p.x == n.x && p.y == n.y);
             }
-            let entries = objects.filter(n => n.cell == 3).filter(fn);
-            // utils.debug(entries);
+            // 优先通过地图单位获取，获取不到通过地图对象获取
+            units.forEach(n => { n.x = n.xpos, n.y = n.ypos; });
+            let founded = units.filter(n => n.flags & 4096 && n.level == 0 && n.model_id > 0 && n.type == 1).filter(fn);
+            if(founded && founded.length > 0) {
+                utils.debug(`founded entries units: ${JSON.stringify(founded)}`);
+                return founded[0];
+            } 
+            let entries = objects.filter(n => n.cell == 3 || n.cell == 9 || n.cell == 10 || n.cell == 11 || n.cell == 13).filter(fn);
+            utils.debug(`founded entries objects: ${JSON.stringify(entries)}`);
             return entries.length > 0 ? entries[0] : null;
         };
         bryan.获取周围随机传送点 = getRandomEntryPoint;
@@ -591,19 +598,21 @@ module.exports = async (cga) => {
 
             // 移动完成切图操作
             // utils.info(`自动寻路：到达(${x}, ${y})`);
+            
             if (warp === true) {
                 // console.log(cga.getMapObjects());
                 let times = 0, retry = 3;
-                let target = await cga.getMapObjects().find(n => (n.cell == 3 || n.cell == 10) && n.x == x && n.y == y);
-                while (target && await getMapId() == mapInfo.indexes.index3 && times < retry) {
-                    times++;
+                let current = await getPlayerPos();
+                let target = await cga.getMapObjects().find(n => (n.cell == 3 || n.cell == 10 || n.cell == 9 || n.cell == 11 || n.cell == 13) && n.x == x && n.y == y);
+                while(current.x != x || current.y != y) {
                     await waitBattleFinish(1000);
                     await cga.WalkTo(x, y);
                     await utils.wait(2000);
-                    if (await getMapId() == mapInfo.indexes.index3) {
-                        await cga.FixMapWarpStuck(1);
-                        await utils.wait(1000);
-                    }
+                }
+                while (target && await getMapId() == mapInfo.indexes.index3 && times < retry) {
+                    times++;
+                    await cga.FixMapWarpStuck(1);
+                    await utils.wait(1000);
                 }
             }
 
