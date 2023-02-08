@@ -1052,6 +1052,43 @@ module.exports = async (cga) => {
         bryan.丢弃物品 = dropItem;
         bryan._internal['dropItem'] = dropItem;
 
+        // 113. 银行存物品
+        let saveToBank = async (items = [], gold = 0, size = 20) => {
+            let filters = items.map(n => {
+                let splits = n.split("|");
+                let name = splits[0], count = splits.length > 1 ? splits[1] : 0;
+                return { name: name, count: count };
+            });
+
+            let bankItems = cga.GetBankItemsInfo();
+            let bankSlotIndex = 100;
+            let doSavableSlotIndex = (item) => {
+                let slot = bankItems.find(b => b.name == item.name && b.count < item.count);
+                if (!slot) {
+                    while (bankSlotIndex < bankSlotIndex + size && bankItems.find(b => b.pos == bankSlotIndex)) {
+                        bankSlotIndex++;
+                    }
+                    if (bankSlotIndex < bankSlotIndex + size ) {
+                        cga.MoveItem(item.pos, bankSlotIndex, -1);
+                        bankItems.push({ pos: bankSlotIndex, count: item.count });
+                    }
+                } else {
+                    cga.MoveItem(item.pos, slot.pos, -1);
+                    slot.count = slot.count + item.count;
+                }
+            };
+
+            let targes = cga.getInventoryItems().filter( item => filters.find(n => item.name == n.name && item.count >= n.count));
+            targes.forEach(item => doSavableSlotIndex(item));
+
+            if (gold > 0) {
+                cga.MoveGold(gold, cga.MOVE_GOLD_TOBANK);
+            }
+            return true;
+        }
+        bryan.银行存物品 = saveToBank;
+        bryan._internal['saveToBank'] = saveToBank;
+
         /**
          * 导出方法区
          */
