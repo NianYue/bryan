@@ -600,15 +600,23 @@ module.exports = async (cga) => {
             // utils.info(`自动寻路：到达(${x}, ${y})`);
             
             if (warp === true) {
+                await waitBattleFinish(1000);
                 // console.log(cga.getMapObjects());
                 let times = 0, retry = 3;
                 let current = await getPlayerPos();
-                let target = await cga.getMapObjects().find(n => (n.cell == 3 || n.cell == 10 || n.cell == 9 || n.cell == 11 || n.cell == 13) && n.x == x && n.y == y);
+                // 到达指定位置
                 while((current.x != x || current.y != y) && await getMapId() == mapInfo.indexes.index3) {
-                    await waitBattleFinish(1000);
                     await cga.WalkTo(x, y);
                     await utils.wait(2000);
+                    current = await getPlayerPos();
                 }
+                // 如果未切换地图 | 强制切图1次，避免异次元无法切图成功
+                if(await getMapId() == mapInfo.indexes.index3) {
+                    await cga.FixMapWarpStuck(1);
+                    await utils.wait(2000);
+                }
+                // 如果目标能够确定是切图点，则多尝试几次切图动作
+                let target = await cga.getMapObjects().find(n => (n.cell == 3 || n.cell == 10 || n.cell == 9 || n.cell == 11 || n.cell == 13) && n.x == x && n.y == y);
                 while (target && await getMapId() == mapInfo.indexes.index3 && times < retry) {
                     times++;
                     await cga.FixMapWarpStuck(1);
