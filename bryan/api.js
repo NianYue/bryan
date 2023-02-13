@@ -43,7 +43,7 @@ module.exports = async (cga) => {
         };
 
         // *. 加载用户配置
-        let initUserSettings = (config) => {
+        let setUserSettings = (config) => {
             return new Promise((resolve, reject) => {
                 cga.gui.LoadSettings(config, (error, result) => {
                     if (error != null) {
@@ -59,13 +59,36 @@ module.exports = async (cga) => {
             try {
                 let config = await getUserSettings();
                 utils.deepMerge(config, updated, append);
-                await initUserSettings(config);
+                await setUserSettings(config);
                 return config;
             } catch (error) {
                 utils.error(`更新玩家配置出错: ${error}`);
             }
             return false;
         };
+
+        // *. 加载账号配置
+        let setAccountSettiongs = (config) => {
+            // {
+            //     user : "通行证",
+            //     pwd : "密码",
+            //     gid : "子账号",
+            //     game : 4, //区服
+            //     bigserver : 1, //电信or网通
+            //     server : 8, //线路
+            //     character : 1, //左边or右边
+            //     autologin : true, //自动登录开启
+            //     skipupdate : false, //禁用登录器更新开启
+            // }
+            return new Promise((resolve, reject) => {
+                cga.gui.LoadAccount(config, (error, result) => {
+                    if (error != null) {
+                        return reject(error);
+                    }
+                    return resolve(result)
+                });
+            });
+        }
 
         /* ------------------------------------------------------------------------ */
         /* --------------------------------- 设置 --------------------------------- */
@@ -332,6 +355,31 @@ module.exports = async (cga) => {
         bryan.设置遇BOSS停止自动战斗 = setAutoBattleFoundBoss;
         bryan._internal['setAutoBattleFoundBoss'] = setAutoBattleFoundBoss;
 
+        // 17. 设置自动登陆
+        let setAutoLogin = async (enable = true) => {
+            let msg = '设置自动登陆';
+            let updated = {
+                autologin: enable == true ? true : false
+            }
+            let result = await setAccountSettiongs(updated);
+            result ? utils.info(`${msg}: ${result.autologin ? '开' : '关'}`) : utils.error(`${msg}失败`);
+        }
+        bryan.设置自动登陆 = setAutoLogin;
+        bryan._internal['setAutoLogin'] = setAutoLogin;
+
+        // 18. 设置游戏线路
+        let setLoginLine = async (target = 1) => {
+            let msg = '设置游戏线路';
+            let updated = {
+                server : Math.max(10, Math.min(1, target))
+            }
+            let result = await setAccountSettiongs(updated);
+            result ? utils.info(`${msg}: ${result.server}线`) : utils.error(`${msg}失败`);
+        }
+        bryan.设置游戏线路 = setLoginLine;
+        bryan._internal['setLoginLine'] = setLoginLine;
+
+
         // 30. 设置自动战斗逃跑
         let setAutoBattleEscape = async () => {
             let config = getUserSettings();
@@ -463,10 +511,10 @@ module.exports = async (cga) => {
             // 优先通过地图单位获取，获取不到通过地图对象获取
             units.forEach(n => { n.x = n.xpos, n.y = n.ypos; });
             let founded = units.filter(n => n.flags & 4096 && n.level == 0 && n.model_id > 0 && n.type == 1).filter(fn);
-            if(founded && founded.length > 0) {
+            if (founded && founded.length > 0) {
                 utils.debug(`founded entries units: ${JSON.stringify(founded)}`);
                 return founded[0];
-            } 
+            }
             let entries = objects.filter(n => n.cell == 3 || n.cell == 9 || n.cell == 10 || n.cell == 11 || n.cell == 13).filter(fn);
             utils.debug(`founded entries objects: ${JSON.stringify(entries)}`);
             return entries.length > 0 ? entries[0] : null;
@@ -510,6 +558,13 @@ module.exports = async (cga) => {
         };
         bryan.获取地图序号 = getMapId;
         bryan._internal['getMapId'] = getMapId;
+
+        // 64. 获取银行物品数量
+        let getBankItemCount = (name) => {
+            return cga.cga.GetBankItemsInfo().filter(item => !name || item.name == name).length;
+        }
+        bryan.获取银行物品数量 = getBankItemCount;
+        bryan._internal['getBankItemCount'] = getBankItemCount;
 
         /* ------------------------------------------------------------------------ */
         /* --------------------------------- 操作 --------------------------------- */
@@ -598,20 +653,20 @@ module.exports = async (cga) => {
 
             // 移动完成切图操作
             // utils.info(`自动寻路：到达(${x}, ${y})`);
-            
+
             if (warp === true) {
                 await waitBattleFinish(1000);
                 // console.log(cga.getMapObjects());
                 let times = 0, retry = 3;
                 let current = await getPlayerPos();
                 // 到达指定位置
-                while((current.x != x || current.y != y) && await getMapId() == mapInfo.indexes.index3) {
+                while ((current.x != x || current.y != y) && await getMapId() == mapInfo.indexes.index3) {
                     await cga.WalkTo(x, y);
                     await utils.wait(2000);
                     current = await getPlayerPos();
                 }
                 // 如果未切换地图 | 强制切图1次，避免异次元无法切图成功
-                if(await getMapId() == mapInfo.indexes.index3) {
+                if (await getMapId() == mapInfo.indexes.index3) {
                     await cga.FixMapWarpStuck(1);
                     await utils.wait(2000);
                 }
@@ -781,7 +836,7 @@ module.exports = async (cga) => {
             let entries = await cga.getMapObjects().filter(n => n.cell == 3);
             let pos = cga.getMapInfo(), matrix = cga.buildMapCollisionMatrix().matrix;
             let available = utils.findAroundMovablePos(pos.x, pos.y, matrix).find(n => entries.find(e => n.x != e.x || n.y != e.y));
-            if(entries.find(n => n.x == pos.x && n.y == pos.y) && available) {
+            if (entries.find(n => n.x == pos.x && n.y == pos.y) && available) {
                 pos = available;
                 await walkTo(pos.x, pos.y);
                 await waitBattleFinish(3000);
@@ -1076,7 +1131,7 @@ module.exports = async (cga) => {
                     while (bankSlotIndex < bankSlotIndex + size && bankItems.find(b => b.pos == bankSlotIndex)) {
                         bankSlotIndex++;
                     }
-                    if (bankSlotIndex < bankSlotIndex + size ) {
+                    if (bankSlotIndex < bankSlotIndex + size) {
                         cga.MoveItem(item.pos, bankSlotIndex, -1);
                         bankItems.push({ pos: bankSlotIndex, count: item.count });
                     }
@@ -1086,7 +1141,7 @@ module.exports = async (cga) => {
                 }
             };
 
-            let targes = cga.getInventoryItems().filter( item => filters.find(n => item.name == n.name && item.count >= n.count));
+            let targes = cga.getInventoryItems().filter(item => filters.find(n => item.name == n.name && item.count >= n.count));
             targes.forEach(item => doSavableSlotIndex(item));
 
             if (gold > 0) {
@@ -1096,6 +1151,38 @@ module.exports = async (cga) => {
         }
         bryan.银行存物品 = saveToBank;
         bryan._internal['saveToBank'] = saveToBank;
+
+        // 114. 银行取物品
+        let recaptionFromBank = async (items = [], gold = 0, size = 20) => {
+            let filters = items.map(n => {
+                let splits = n.split("|");
+                let name = splits[0], count = splits.length > 1 ? splits[1] : 0;
+                return { name: name, count: count };
+            });
+
+            let items = cga.getInventoryItems().sort((a, b) => a.pos - b.pos);
+            let bankItems = cga.GetBankItemsInfo().filter(item => filters.find(n => item.name == n.name && item.count >= n.count));
+            let recaptionCount = Math.min(size - items.length, bankItems.length);
+            for (let index = 0; index < recaptionCount; index++) {
+                let target = bankItems[index];
+                for (let slot = 8; slot < size + 8; slot++) {
+                    if (!items.find(n => n.pos)) {
+                        cga.MoveItem(target.pos, slot, -1);
+                        break;
+                    }
+                }
+            }
+
+            if (gold > 0) {
+                cga.MoveGold(gold, cga.MOVE_GOLD_FROMBANK);
+            }
+
+            return true;
+        }
+        bryan.银行取物品 = recaptionFromBank;
+        bryan._internal['recaptionFromBank'] = recaptionFromBank;
+
+
 
         /**
          * 导出方法区
