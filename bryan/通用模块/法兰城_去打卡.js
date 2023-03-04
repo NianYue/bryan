@@ -1,4 +1,4 @@
-let thisobj = async (登出 = true) => {
+let thisobj = async (登出 = true, 补给后动作 = 2) => {
 
     // 初始化
     await require('../api')();
@@ -31,11 +31,21 @@ let thisobj = async (登出 = true) => {
         剩余打卡时间 = await 获取剩余打卡时间();
     }
 
-    while(获取地图名称() != '法兰城') {
-        await 自动寻路(9, 24, true);
-        await 等待(1000);
+    switch (补给后动作) {
+        case 1:
+            while (await 是否在西医院里面() == true) {
+                信息提示(`\n温馨提示：打卡后登出回城会取消打卡效果，因此忽略该操作`)
+                // await 登出回城();
+                await 等待(1000);
+            }
+            break;
+        case 2:
+            while(获取地图名称() != '法兰城') {
+                await 自动寻路(9, 24, true);
+                await 等待(1000);
+            }
+            break;
     }
-
 
     信息提示(`\n执行脚本：成功|${登出 == true ? '登出回城，' : ''}去法兰城打卡`)
 };

@@ -1,0 +1,58 @@
+{
+    "battle": {
+        "autobattle": true,
+        "beep": false,
+        "bossprot": false,
+        "delayfrom": 4000,
+        "delayto": 4500,
+        "highspeed": true,
+        "list": [
+            {
+                "condition": 0,
+                "condition2": 0,
+                "condition2rel": 0,
+                "condition2val": "",
+                "conditionrel": 0,
+                "conditionval": "",
+                "index": 0,
+                "petaction": 100,
+                "petskillname": "防御",
+                "pettarget": 0,
+                "pettargetsel": 0,
+                "playeraction": 3,
+                "playertarget": -1,
+                "playertargetsel": -1
+            }
+        ],
+        "lockcd": false,
+        "lv1prot": false,
+        "pet2action": false,
+        "r1nodelay": true,
+        "waitafterbattle": true
+    },
+    "chat": {
+    },
+    "itemdroplist": [
+    ],
+    "itemidmap": {
+    },
+    "itemtweaklist": [
+    ],
+    "player": {
+        "antiafkkick": true,
+        "autosupply": true,
+        "gametextui": false,
+        "movespd": 130,
+        "noswitchanim": false,
+        "petfood": false,
+        "petfoodat": "0",
+        "petmed": false,
+        "petmedat": "0",
+        "usefood": false,
+        "usefoodat": "0",
+        "usemed": false,
+        "usemedat": "0",
+        "workacc": 100,
+        "workdelay": 6500
+    }
+}

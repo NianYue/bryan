@@ -98,7 +98,7 @@ let 挑战僵尸王 = async (是否需要初始化 = true) => require('../api')(
 
 let 导出模块 = () => {
     if (process.argv[1] === __filename) {
-        挑战僵尸王(true);
+        return 挑战僵尸王(true);
     }
     return 挑战僵尸王;
 }

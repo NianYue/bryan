@@ -1,13 +1,14 @@
 /**
  * 简单命令脚本框架
  */
+const { reject } = require('async');
 let utils = require('./share/utils');
 module.exports = async (cga) => {
 
     return new Promise(async (resolve) => {
 
         // 框架加载
-        let version = '版本(v0.0.5)';
+        let version = '版本(v0.0.8)';
         cga = cga ? cga : global.cga;
         if (global.bryan) { return resolve(global.bryan); }
         utils.info(cga ? `加载简单指令系统|${version}` : `简单指令系统|${version} 尝试重新初始化...`);
@@ -25,9 +26,16 @@ module.exports = async (cga) => {
         let bryan = {};
         bryan._internal = {};
 
+        /* ------------------------------------------------------------------------ */
+        /* --------------------------------- 通用 --------------------------------- */
+        /* ------------------------------------------------------------------------ */
+
         // *. 等待延迟
         bryan.等待 = utils.wait;
+        bryan._internal['delay'] = utils.wait;
         // *. 打印日志
+        bryan._internal['info'] = utils.info;
+        bryan._internal['debug'] = utils.debug;
         bryan.信息提示 = utils.info;
 
         // *. 获取用户配置
@@ -41,6 +49,7 @@ module.exports = async (cga) => {
                 });
             });
         };
+        bryan._internal['getUserSettings'] = getUserSettings;
 
         // *. 加载用户配置
         let setUserSettings = (config) => {
@@ -53,6 +62,7 @@ module.exports = async (cga) => {
                 });
             });
         };
+        bryan._internal['setUserSettings'] = setUserSettings;
 
         // *. 更新用户配置
         let updateUserSettings = async (updated, append = false) => {
@@ -88,6 +98,26 @@ module.exports = async (cga) => {
                     return resolve(result)
                 });
             });
+        }
+
+        // *. 本地配置文件读取
+        bryan._internal['getLocalConfig'] = async () => {
+            return await utils.read('LocalConfig.json');
+        }
+        // *. 本地配置文件更新
+        bryan._internal['setLocalConfig'] = async (data = {}) => {
+            return await utils.write('LocalConfig.json', data, true);
+        }
+
+        // *. 加载JSON文件
+        const FS = require('fs');
+        bryan._internal['getJsonFile'] = async (path = '') => {
+            let result = {};
+            if (FS.existsSync(path)) {
+                let content = FS.readFileSync(path, 'utf-8');
+                result = JSON.parse(content);
+            }
+            return result;
         }
 
         /* ------------------------------------------------------------------------ */
@@ -371,13 +401,31 @@ module.exports = async (cga) => {
         let setLoginLine = async (target = 1) => {
             let msg = '设置游戏线路';
             let updated = {
-                server : Math.max(10, Math.min(1, target))
+                server: Math.max(10, Math.min(1, target))
             }
             let result = await setAccountSettiongs(updated);
             result ? utils.info(`${msg}: ${result.server}线`) : utils.error(`${msg}失败`);
         }
         bryan.设置游戏线路 = setLoginLine;
         bryan._internal['setLoginLine'] = setLoginLine;
+
+        // 19. 设置组队开关
+        let setTeamFlag = async (enable = true) => {
+            let msg = '设置组队开关';
+            cga.EnableFlags(cga.ENABLE_FLAG_JOINTEAM, enable == true ? true : false);
+            utils.info(`${msg}: ${enable == true ? '开' : '关'}`);
+        }
+        bryan.设置组队开关 = setTeamFlag;
+        bryan._internal['setTeamFlag'] = setTeamFlag;
+
+        // 20. 设置交易开关
+        let setTradeFlag = async (enable = true) => {
+            let msg = '设置交易开关';
+            cga.EnableFlags(cga.ENABLE_FLAG_TRADE, enable == true ? true : false);
+            utils.info(`${msg}: ${enable == true ? '开' : '关'}`);
+        }
+        bryan.设置交易开关 = setTradeFlag;
+        bryan._internal['setTradeFlag'] = setTradeFlag;
 
 
         // 30. 设置自动战斗逃跑
@@ -415,6 +463,20 @@ module.exports = async (cga) => {
         };
         bryan.设置自动战斗逃跑 = setAutoBattleEscape;
         bryan._internal['setAutoBattleEscape'] = setAutoBattleEscape;
+
+        // 31. 设置出战宠物
+        let setBattlePetByName = async (name = '') => {
+            let pets = getAllPetList();
+            let target = pets.find(n => n.realname == name);
+            if (target && target.state != cga.PET_STATE_BATTLE) {
+                pets.filter(n => n.state == cga.PET_STATE_BATTLE).forEach(n => cga.ChangePetState(n.index, cga.PET_STATE_READY));
+                await utils.wait(1000);
+                cga.ChangePetState(target.index, cga.PET_STATE_BATTLE);
+                await utils.wait(1000);
+            }
+        }
+        bryan.设置出战宠物 = setBattlePetByName;
+        bryan._internal['setBattlePetByName'] = setBattlePetByName;
 
         /* ------------------------------------------------------------------------ */
         /* --------------------------------- 查询 --------------------------------- */
@@ -523,7 +585,7 @@ module.exports = async (cga) => {
         bryan._internal['getRandomEntryPoint'] = getRandomEntryPoint;
 
         // 60. 获取周围可移动坐标
-        let getAroundMovable = async (x, y) => {
+        let getAroundMovable = (x, y) => {
             let pos = getPlayerPos();
             let matrix = cga.buildMapCollisionMatrix().matrix;
             let available = utils.findAroundMovablePos(x, y, matrix).sort((a, b) => {
@@ -544,8 +606,8 @@ module.exports = async (cga) => {
         bryan._internal['getPlayerItemCount'] = getPlayerItemCount;
 
         // 62 获取周围NPC坐标
-        let getArounNpcUnitPos = async (name) => {
-            let units = await cga.GetMapUnits().filter(mapUnit => mapUnit['flags'] & 4096 && mapUnit['model_id'] > 0 && mapUnit['level'] == 1);
+        let getArounNpcUnitPos = (name) => {
+            let units = cga.GetMapUnits().filter(mapUnit => mapUnit['flags'] & 4096 && mapUnit['model_id'] > 0 && mapUnit['level'] == 1);
             // console.log(units);
             return units.find(n => n.unit_name == name);
         };
@@ -565,6 +627,59 @@ module.exports = async (cga) => {
         }
         bryan.获取银行物品数量 = getBankItemCount;
         bryan._internal['getBankItemCount'] = getBankItemCount;
+
+        // 65. 判断是否队长
+        let getIsTeamLeader = (members = []) => {
+            let player = getPlayerName();
+            return !members || members.length < 2 || members[0] == player;
+        }
+        bryan.判断是否队长 = getIsTeamLeader;
+        bryan._internal['getIsTeamLeader'] = getIsTeamLeader;
+
+        // 65. 获取人物等级
+        let getPlayerLevel = () => {
+            return cga.GetPlayerInfo().level;
+        }
+        bryan.获取人物等级 = getPlayerLevel;
+        bryan._internal['getPlayerLevel'] = getPlayerLevel;
+
+        // 66. 获取人物金币
+        let getPlayerGold = () => {
+            return cga.GetPlayerInfo().gold;
+        }
+        bryan.获取人物金币 = getPlayerGold;
+        bryan._internal['getPlayerGold'] = getPlayerGold;
+
+        // 66. 获取人物职业
+        let getPlayerJobName = () => {
+            return cga.GetPlayerInfo().job;
+        }
+        bryan.获取人物职业 = getPlayerJobName;
+        bryan._internal['getPlayerJobName'] = getPlayerJobName;
+
+        // 67. 获取人物技能
+        let getPlayerSkillByName = (name) => {
+            return cga.findPlayerSkill(name);
+        }
+        bryan.获取人物技能 = getPlayerSkillByName;
+        bryan._internal['getPlayerSkillByName'] = getPlayerSkillByName;
+
+        // 68. 获取指定宠物
+        let getPetByName = (name = '') => {
+            let target = getAllPetList().find(n => n.realname == name);
+            return target;
+        }
+        bryan.获取指定宠物 = getPetByName;
+        bryan._internal['getPetByName'] = getPetByName;
+
+        // 69. 获取全部宠物
+        let getAllPetList = (desc = true) => {
+            let pets = cga.GetPetsInfo();
+            let targets = pets.sort((a, b) => { return desc ? b.level - a.level : a.level - b.level });
+            return targets;
+        }
+        bryan.获取全部宠物 = getAllPetList;
+        bryan._internal['getAllPetList'] = getAllPetList;
 
         /* ------------------------------------------------------------------------ */
         /* --------------------------------- 操作 --------------------------------- */
@@ -706,25 +821,15 @@ module.exports = async (cga) => {
         bryan._internal['waitBattleFinish'] = waitBattleFinish;
 
         // 102. 对话NPC
-        let talkNpc = async (x, y, action = []) => {
-            let target = await getNpcName(x, y);
-            // if (!target) {
-            //     return false;
-            // }
-            utils.info(`对话NPC：${target}`);
-            cga.turnTo(x, y);
-            if (!action || action.length < 1 || !x || !y) {
-                return true;
-            }
+        let dlg = async (action = []) => {
 
             // 等待游戏NPC对话窗口打开
-            let waitDialogOpen = async (click, timeout) => {
+            let waitDialogOpen = async (click, timeout = 10000) => {
                 return new Promise((resolve, reject) => {
                     cga.AsyncWaitNPCDialog((error, dialog) => setTimeout(() => {
                         if (error) {
                             return reject(error);
                         }
-                        //console.log(dialog);
                         click(dialog ? dialog : {});
                         return resolve()
                     }, 0), timeout)
@@ -790,6 +895,44 @@ module.exports = async (cga) => {
                 }
             };
 
+            let makeSelectTarget = (text = '') => {
+                return (dialog = {}) => {
+                    if (!dialog || !dialog.message || !dialog.type || dialog.type != 2) {
+                        utils.info(`对话NPC处理失败: 未知的对话类型${JSON.stringify(dialog)}`);
+                        return;
+                    }
+                    let splits = dialog.message.split('\\n'), options = [];
+                    for (let i = splits.length - 1; i >= 0; i--) {
+                        if (splits[i] != '') {
+                            options.push(splits[i]);
+                        } else if (i != splits.length - 1) {
+                            break;
+                        }
+                    }
+                    options.reverse();
+                    for (let i = 0; i < options.length; i++) {
+                        if (options[i] === text) {
+                            cga.ClickNPCDialog(0, i);
+                            break;
+                        }
+                    }
+                }
+            };
+
+            let learnPlayerSkill = (dialog = {}) => {
+                if (dialog.type == 16) {
+                    cga.ClickNPCDialog(-1, 0);
+                }
+                if (dialog.type == 17) {
+                    cga.ClickNPCDialog(0, -1);
+                    return true;
+                }
+                if (dialog.options == 1) {
+                    cga.ClickNPCDialog(1, -1);
+                    return true;
+                }
+            };
+
             try {
                 await utils.wait(1000);
                 for (let i = 0; i < action.length; i++) {
@@ -801,9 +944,18 @@ module.exports = async (cga) => {
                     } else if (selection == '下一步' || selection == '确定') {
                         // 选下一步、确认
                         await waitDialogOpen(selectNext);
-                    } else {
+                    } else if (selection == '是') {
                         // 选是
                         await waitDialogOpen(selectYes);
+                    } else if (selection == '想学习技能') {
+                        await waitDialogOpen(learnPlayerSkill);
+                        await utils.wait(1000);
+                        await waitDialogOpen(learnPlayerSkill);
+                        await utils.wait(1000);
+                        await waitDialogOpen(learnPlayerSkill);
+                        await utils.wait(1000);
+                    } else {
+                        await waitDialogOpen(makeSelectTarget(selection));
                     }
                 }
                 return true;
@@ -811,6 +963,20 @@ module.exports = async (cga) => {
                 utils.error(`对话NPC调用失败: ${error}`);
                 return false;
             }
+        }
+        let talkNpc = async (x, y, action = []) => {
+            if (x > -1 && y > -1) {
+                let target = await getNpcName(x, y);
+                // if (!target) {
+                //     return false;
+                // }
+                utils.info(`对话NPC: ${target}`);
+                cga.turnTo(x, y);
+            }
+            if (!action || action.length < 1) {
+                return true;
+            }
+            return await dlg(action);
         };
         bryan.对话NPC = talkNpc;
         bryan._internal['talkNpc'] = talkNpc;
@@ -835,13 +1001,29 @@ module.exports = async (cga) => {
             let current = await getMapName();
             let entries = await cga.getMapObjects().filter(n => n.cell == 3);
             let pos = cga.getMapInfo(), matrix = cga.buildMapCollisionMatrix().matrix;
-            let available = utils.findAroundMovablePos(pos.x, pos.y, matrix).find(n => entries.find(e => n.x != e.x || n.y != e.y));
-            if (entries.find(n => n.x == pos.x && n.y == pos.y) && available) {
-                pos = available;
-                await walkTo(pos.x, pos.y);
-                await waitBattleFinish(3000);
+            let walk_to_good_pos = async (pos, matrix, force = false, steps = 3) => {
+                let available = pos;
+                let not_entries_filter = (n => entries.length < 1 || entries.find(e => n.x != e.x || n.y != e.y));
+                let availables = utils.findAroundMovablePos(pos.x, pos.y, matrix).filter(not_entries_filter);
+                // 移动到周围都是空格的位置
+                for (let limit = 0; limit < steps && availables && availables.length < 8 || force; limit++) {
+                    force = false;
+                    available = availables.sort((a, b) => {
+                        let la = utils.findAroundMovablePos(a.x, a.y, matrix).filter(not_entries_filter).length;
+                        let lb = utils.findAroundMovablePos(b.x, b.y, matrix).filter(not_entries_filter).length;
+                        return lb - la;
+                    })[0];
+                    await walkTo(available.x, available.y);
+                    await waitBattleFinish(3000);
+                    availables = utils.findAroundMovablePos(available.x, available.y, matrix).filter(not_entries_filter);
+                }
+                return available;
             }
-            available = utils.findAroundMovablePos(pos.x, pos.y, matrix).find(n => entries.find(e => n.x != e.x || n.y != e.y));
+            // 避免刚切图遇敌先走动几步
+            if (entries.find(n => n.x == pos.x && n.y == pos.y)) {
+                pos = await walk_to_good_pos(pos, matrix, true);
+            }
+            let available = await walk_to_good_pos(pos, matrix, true);
             if (!available) {
                 utils.info(`高速遇敌：周围没有可移动的坐标，停止高速遇敌`);
                 return true;
@@ -870,11 +1052,7 @@ module.exports = async (cga) => {
                 }
                 return await loop(pos, dest, swap);
             };
-            let swap = true, dest = available;
-
-            // 避免刚切图遇敌先走动几步
-            await cga.WalkTo(dest.x, dest.y);
-            await utils.wait(1000);
+            let swap = false, dest = available;
 
             utils.info(`高速遇敌：启动`);
             return await loop(pos, dest, swap);
@@ -1023,7 +1201,7 @@ module.exports = async (cga) => {
                 cga.DoRequest(cga.REQUEST_TYPE_JOINTEAM);
                 cga.AsyncWaitNPCDialog((error, dialog) => setTimeout(() => {
                     if (dialog && dialog.type === 2 && dialog.message) {
-                        cga.ClickNPCDialog(-1, dialog.message.split('\n').findIndex(e => e === name) - 2);
+                        cga.ClickNPCDialog(-1, dialog.message.split('\\n').findIndex(e => e === name) - 2);
                         return resolve(true);
                     }
                     return resolve(false);
@@ -1104,6 +1282,21 @@ module.exports = async (cga) => {
         bryan.使用物品 = useItem;
         bryan._internal['useItem'] = useItem;
 
+        // 111_p1. 高级使用物品
+        let useItemEx = async (name, action = []) => {
+            if (!name || !['string', 'number'].includes(typeof name)) {
+                return false;
+            }
+            let item = cga.getInventoryItems().find(n => n.name == name || n.itemid == name);
+            if (item) {
+                cga.UseItem(item.pos);
+                return await dlg(action);
+            }
+            return false;
+        };
+        bryan.高级使用物品 = useItemEx;
+        bryan._internal['useItemEx'] = useItemEx;
+
         // 112. 丢弃物品
         let dropItem = async (items = [], count = 0) => {
             let speed = cga.GetMoveSpeed();
@@ -1153,8 +1346,8 @@ module.exports = async (cga) => {
         bryan._internal['saveToBank'] = saveToBank;
 
         // 114. 银行取物品
-        let recaptionFromBank = async (items = [], gold = 0, size = 20) => {
-            let filters = items.map(n => {
+        let recaptionFromBank = async (targets = [], gold = 0, size = 20) => {
+            let filters = targets.map(n => {
                 let splits = n.split("|");
                 let name = splits[0], count = splits.length > 1 ? splits[1] : 0;
                 return { name: name, count: count };
@@ -1181,6 +1374,129 @@ module.exports = async (cga) => {
         }
         bryan.银行取物品 = recaptionFromBank;
         bryan._internal['recaptionFromBank'] = recaptionFromBank;
+
+        // 115. 转向位置
+        let turnTo = async (x, y) => {
+            cga.turnTo(x, y);
+        };
+        bryan.转向位置 = turnTo;
+        bryan._internal['turnTo'] = turnTo;
+
+        // 116. 等待聊天
+        let waitMsg = async (msg, limit = 10) => {
+            let timeout = 30000;
+            utils.info(`等待聊天消息: ${msg}`);
+            return new Promise((resolve, reject) => {
+                var retry = (times = 0) => {
+                    cga.AsyncWaitChatMsg((error, chat) => {
+                        if (error || !chat || !chat.msg || chat.msg.indexOf(msg) < 0) {
+                            if (times < limit) {
+                                retry(++times);
+                            } else {
+                                reject(`超过最大重试次数: ${limit}次, 每次等待超时: ${Math.floor(timeout / 1000)}秒`);
+                            }
+                        } else {
+                            utils.info(`收到聊天消息: ${JSON.stringify(chat)}`);
+                            resolve(chat);
+                        }
+                    }, timeout);
+                };
+                retry();
+            });
+        };
+        bryan.等待聊天 = waitMsg;
+        bryan._internal['waitMsg'] = waitMsg;
+
+        // 117. 发送聊天
+        let sendMsg = async (msg, limit = 10) => {
+            let timeout = 30000;
+            utils.info(`发送聊天消息: ${msg}`);
+            cga.SayWords(msg, 0, 3, 1);
+            await utils.wait(1000);
+        };
+        bryan.发送聊天 = sendMsg;
+        bryan._internal['sendMsg'] = sendMsg;
+
+        // 118. 等待交易 - BUG 无法同时等待多样物品, 因此满足一样即可
+        let waitTrade = async (items = [], pets = [], money = 0) => {
+            return new Promise((resolve) => {
+                let stuff = {};
+                let check = (playerName, received) => {
+                    let anySatisfy = false;
+                    if (items && items.length > 0) {
+                        let satisfy = true;
+                        for (let i = 0; i < items.length; i++) {
+                            let target = items.at(i);
+                            let limit = target.limit ? target.limit : 1;
+                            if (!received || !received.items
+                                || received.item.filter(n => n.name === target.name).length < limit) {
+                                satisfy = false;
+                                break;
+                            }
+                        }
+                        anySatisfy = anySatisfy || satisfy;
+                    }
+                    if (pets && pets.length > 0) {
+                        let satisfy = true;
+                        for (let i = 0; i < pets.length; i++) {
+                            let target = pets.at(i);
+                            let limit = target.limit ? target.limit : 1;
+                            if (!received || !received.pet
+                                || received.pet.filter(n => n.realname === target.name).length < limit) {
+                                satisfy = false;
+                                break;
+                            }
+                        }
+                        anySatisfy = anySatisfy || satisfy;
+                    }
+                    if (money && money > 0) {
+                        let satisfy = true;
+                        if (!received || !received.gold || received.gold < money) {
+                            satisfy = false;
+                        }
+                        anySatisfy = anySatisfy || satisfy;
+                    }
+                    return anySatisfy;
+                }
+                cga.waitTrade(stuff, check, (arg) => resolve(arg.success));
+            });
+        };
+        bryan.等待交易 = waitTrade;
+        bryan._internal['waitTrade'] = waitTrade;
+
+        // 119. 发起交易
+        let startTrade = async (name = '', items = [], pets = [], money = 0) => {
+            return new Promise((resolve) => {
+                var itemCount = 0, petCount = 0;
+                let stuff = {
+                    tradeItems: (item) => {
+                        let target = items && items.find(n => n.name === item.name);
+                        let limit = target && target.limit ? target.limit : 1;
+                        if (target && itemCount < limit) {
+                            itemCount++;
+                            return true;
+                        }
+                        return false;
+                    },
+                    petFilter: (pet) => {
+                        let target = pets && pets.find(n => n.name === pet.realname);
+                        let limit = target && target.limit ? target.limit : 1;
+                        if (target && petCount < limit) {
+                            petCount++;
+                            return true;
+                        }
+                        return false;
+                    },
+                    gold: money > 0 ? money : 0
+                };
+                let check = (playerName, received) => {
+                    return playerName === name;
+                }
+                cga.positiveTrade(name, stuff, check, (arg) => resolve(arg.success));
+            });
+        };
+        bryan.发起交易 = startTrade;
+        bryan._internal['startTrade'] = startTrade;
 
 
 

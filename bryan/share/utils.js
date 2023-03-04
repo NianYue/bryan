@@ -101,19 +101,25 @@ let write = async (filename, data, update = false, timeout = 5000, subdirectory)
     }
     let path = (subdirectory ? `${directory}/${subdirectory}/` : directory) + filename;
     if (update && FS.existsSync(path)) {
-        let json = JSON.parse(FS.readFileSync(path));
+        let content = FS.readFileSync(path);
+        let json = content.length > 0 ? JSON.parse(content) : {};
         data = deepMerge(json, data);
     }
     FS.writeFileSync(path, JSON.stringify(data), { flag: 'w+' });
     unlock(filename);
 };
 let read = async (filename, subdirectory) => {
+    let result = {};
     if (!filename) {
-        return false;
+        return result;
     }
     filename = fileNameEscape(filename);
     let path = (subdirectory ? `${directory}/${subdirectory}/` : directory) + filename;
-    return FS.existsSync(path) ? JSON.parse(FS.readFileSync(path)) : {};
+    if(FS.existsSync(path)) {
+        let content = FS.readFileSync(path);
+        result = content.length > 0 ? JSON.parse(content) : result;
+    }
+    return result;
 }
 let lock = (filename) => {
     let now = Date.now(), pid = process.pid, path = directory_lock + filename;
