@@ -1,0 +1,106 @@
+{
+    "battle": {
+        "autobattle": true,
+        "beep": false,
+        "bossprot": false,
+        "delayfrom": 4000,
+        "delayto": 4500,
+        "highspeed": true,
+        "list": [
+            {
+                "condition": 1,
+                "condition2": 0,
+                "condition2rel": 0,
+                "condition2val": "",
+                "conditionrel": 2,
+                "conditionval": "25%",
+                "index": 0,
+                "petaction": 100,
+                "petskillname": "气功弹-Ⅱ",
+                "pettarget": 0,
+                "pettargetsel": 0,
+                "playeraction": 100,
+                "playerskilllevel": 0,
+                "playerskillname": "补血魔法",
+                "playertarget": 2,
+                "playertargetsel": -1
+            },
+            {
+                "condition": 3,
+                "condition2": 0,
+                "condition2rel": 0,
+                "condition2val": "",
+                "conditionrel": 2,
+                "conditionval": "25%",
+                "index": 1,
+                "petaction": 100,
+                "petskillname": "气功弹-Ⅱ",
+                "pettarget": 0,
+                "pettargetsel": 0,
+                "playeraction": 100,
+                "playerskilllevel": 0,
+                "playerskillname": "补血魔法",
+                "playertarget": 3,
+                "playertargetsel": -1
+            },
+            {
+                "condition": 0,
+                "condition2": 0,
+                "condition2rel": 0,
+                "condition2val": "",
+                "conditionrel": 0,
+                "conditionval": "",
+                "index": 2,
+                "petaction": 100,
+                "petskillname": "气功弹-Ⅱ",
+                "pettarget": 0,
+                "pettargetsel": 0,
+                "playeraction": 1,
+                "playertarget": 0,
+                "playertargetsel": 0
+            }
+        ],
+        "lockcd": false,
+        "lv1prot": false,
+        "pet2action": true,
+        "r1nodelay": true,
+        "waitafterbattle": true
+    },
+    "chat": {
+    },
+    "itemdroplist": [
+        "卡片？",
+        "OK绷",
+        "国民衫",
+        "国民鞋",
+        "新手标志",
+        "#18047",
+        "#18006",
+        "#18007"
+    ],
+    "itemidmap": {
+    },
+    "itemtweaklist": [
+        "地的水晶碎片|999",
+        "水的水晶碎片|999",
+        "火的水晶碎片|999",
+        "风的水晶碎片|999"
+    ],
+    "player": {
+        "antiafkkick": true,
+        "autosupply": true,
+        "gametextui": false,
+        "movespd": 130,
+        "noswitchanim": false,
+        "petfood": false,
+        "petfoodat": "0",
+        "petmed": false,
+        "petmedat": "0",
+        "usefood": false,
+        "usefoodat": "0",
+        "usemed": false,
+        "usemedat": "0",
+        "workacc": 100,
+        "workdelay": 6500
+    }
+}

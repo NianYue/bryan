@@ -7,7 +7,7 @@ let 功能_自动走迷宫 = async () => require('../api')().then(async () => {
         // 走到底: 沿途开宝箱
         地图序号 = await 获取地图序号();
 
-        await 自动走迷宫(['GM'], ['宝箱'], false);
+        await 自动走迷宫([], ['宝箱'], false);
 
         新地图序号 = await 获取地图序号();
     } while (地图序号 && 地图序号 != 新地图序号)
